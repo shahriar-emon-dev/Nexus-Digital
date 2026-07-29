@@ -1,0 +1,1616 @@
+﻿diff --git a/app/admin/ClientsTable.tsx b/app/admin/clients/ClientsTable.tsx
+similarity index 100%
+rename from app/admin/ClientsTable.tsx
+rename to app/admin/clients/ClientsTable.tsx
+diff --git a/.gitignore b/.gitignore
+index 45c1abc..aa37c53 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -10,6 +10,7 @@
+ 
+ # next.js
+ /.next/
++/.next-build/
+ /out/
+ 
+ # production
+diff --git a/.staff.mjs b/.staff.mjs
+deleted file mode 100644
+index defb889..0000000
+--- a/.staff.mjs
++++ /dev/null
+@@ -1,80 +0,0 @@
+-import { chromium } from "playwright";
+-import fs from "node:fs";
+-
+-const BASE = "http://localhost:3111";
+-const OUT = process.env.SHOT_DIR;
+-fs.mkdirSync(OUT, { recursive: true });
+-
+-const browser = await chromium.launch();
+-const problems = [];
+-const routes = ["/staff", "/staff/projects", "/staff/time-tracker", "/staff/meetings"];
+-
+-for (const theme of ["dark", "light"]) {
+-  for (const width of [1440, 390]) {
+-    for (const route of routes) {
+-      const ctx = await browser.newContext({
+-        viewport: { width, height: width === 390 ? 844 : 900 },
+-      });
+-      await ctx.addInitScript((t) => localStorage.setItem("nexus-theme", t), theme);
+-      const page = await ctx.newPage();
+-      const bag = [];
+-      page.on("console", (m) => {
+-        if (m.type() === "error" || m.type() === "warning")
+-          bag.push(`[${m.type()}] ${m.text().split("\n")[0].slice(0, 150)}`);
+-      });
+-      page.on("pageerror", (e) => bag.push(`[pageerror] ${e.message.slice(0, 150)}`));
+-      await page
+-        .goto(BASE + route, { waitUntil: "networkidle", timeout: 45000 })
+-        .catch((e) => bag.push(`[goto] ${e.message}`));
+-      await page.waitForTimeout(600);
+-      const o = await page.evaluate(() => ({
+-        s: document.documentElement.scrollWidth,
+-        c: document.documentElement.clientWidth,
+-      }));
+-      if (o.s > o.c + 1) bag.push(`[overflow] ${o.s} > ${o.c}`);
+-      if (theme === "dark")
+-        await page.screenshot({
+-          path: `${OUT}/st-${width}-${route.replace(/\//g, "_")}.png`,
+-          fullPage: width === 1440,
+-        });
+-      if (bag.length) problems.push({ theme, width, route, logs: [...new Set(bag)] });
+-      await ctx.close();
+-    }
+-  }
+-}
+-
+-// Drive the timer and the department switcher.
+-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+-const page = await ctx.newPage();
+-await page.goto(BASE + "/staff", { waitUntil: "networkidle" });
+-
+-const timer = page.getByLabel("Active time tracker");
+-const t1 = await timer.locator("p[data-tabular]").textContent();
+-await page.waitForTimeout(2200);
+-const t2 = await timer.locator("p[data-tabular]").textContent();
+-
+-await page.getByRole("button", { name: "Pause timer" }).click();
+-await page.waitForTimeout(1600);
+-const t3 = await timer.locator("p[data-tabular]").textContent();
+-
+-// Persists across navigation?
+-await page.getByRole("link", { name: "Project Kanban Boards" }).click();
+-await page.waitForTimeout(900);
+-const timerStillThere = await page.getByLabel("Active time tracker").isVisible();
+-
+-await page.goto(BASE + "/staff", { waitUntil: "networkidle" });
+-await page.getByLabel("Department").click().catch(() => {});
+-await page.waitForTimeout(500);
+-const deptOptions = await page.getByRole("option").count();
+-await page.screenshot({ path: `${OUT}/st-dept.png` });
+-
+-console.log(
+-  JSON.stringify({ t1, t2, ticked: t1 !== t2, t3, pausedHeld: t2 === t3, timerStillThere, deptOptions })
+-);
+-await browser.close();
+-
+-console.log("\nPROBLEMS:", problems.length);
+-for (const p of problems) {
+-  console.log(`--- ${p.theme} @${p.width} ${p.route}`);
+-  p.logs.forEach((l) => console.log("   ", l));
+-}
+diff --git a/app/(public)/case-studies/WorkGrid.tsx b/app/(public)/case-studies/WorkGrid.tsx
+deleted file mode 100644
+index 912b412..0000000
+--- a/app/(public)/case-studies/WorkGrid.tsx
++++ /dev/null
+@@ -1,293 +0,0 @@
+-"use client";
+-
+-import * as React from "react";
+-import Image from "next/image";
+-import Link from "next/link";
+-import { ArrowRight } from "lucide-react";
+-
+-import { cn } from "@/lib/utils";
+-
+-type Layout = "featured" | "tall" | "wide" | "half";
+-
+-type Project = {
+-  id: string;
+-  title: string;
+-  blurb: string;
+-  category: string;
+-  layout: Layout;
+-  image: string;
+-  href: string;
+-  eyebrow?: string;
+-  featured?: boolean;
+-  metrics?: { value: string; label: string; tone: "brand" | "ion" }[];
+-  tags?: string[];
+-};
+-
+-/* TODO: every `image` below is a design-tool CDN URL and will expire ΓÇö swap for
+-   hosted assets. */
+-const projects: Project[] = [
+-  {
+-    id: "omnipay",
+-    title: "OmniPay Global",
+-    blurb:
+-      "Reinventing cross-border liquidity for the next generation of digital-first enterprise banking systems.",
+-    category: "Fintech",
+-    layout: "featured",
+-    featured: true,
+-    href: "/case-studies/omnipay-global",
+-    image:
+-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDMiJyYR5UdZHCwgyb0_ciemaLR75aVVQGM68krJXvG_m6xVD4XUArn8WBnRmwijymy2DI2L6X2J8mMlRPcJg9yM85kzl-LyVRp9vLtSAWfE63ala7wKU9MNXeI6CBhktyCfgF5vLiX75ctRzmPItLNhY7Qu2mdlrl8dw0t_tmIoxCktP8RQ0V8FHQM8rVmP_ZSelSfpi-SPMUdxfuEIauWaZ6VJgZL_14HomyqpFIZXAoeiYZafWNdp0SBQf_I7dv2RWT6A6TpO_no",
+-    metrics: [
+-      { value: "+240%", label: "Efficiency", tone: "brand" },
+-      { value: "12ms", label: "Latency", tone: "ion" },
+-    ],
+-  },
+-  {
+-    id: "aether",
+-    title: "Aether Dynamics",
+-    blurb: "Architecting the neural interface for autonomous logistics swarms.",
+-    category: "AI & Robotics",
+-    eyebrow: "Robotics",
+-    layout: "tall",
+-    href: "/case-studies/aether-dynamics",
+-    image:
+-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDEESPyaJFjn_UtZ5bh_FhnV5TQEeFrtspo1AQU3GhziDgdWC8rLLItYGgn8NqKajMAx1C9Wd618FH_5URH3oVMN6Aav5J6l2t8SlOU-aF8PdtOE3scqWuMvYWgCBoNU-8ao-av-1eS_3IifPWcRFFH0Kts1E3z7YrOUzr9nlWQ9McL4i6ZoNtEmYRSJQB4OHikMl9ieGyjHyPoKq_5tYNumeh7NChh9nmZHzFmJfBpUuI9Gy4VG_GEdXP8u63wTGnq4Y6ft33KRYAR",
+-  },
+-  {
+-    id: "nexus-os",
+-    title: "Nexus OS v4.0",
+-    blurb:
+-      "The world's first spatial operating system for decentralized city management and resource allocation.",
+-    category: "Web3",
+-    layout: "wide",
+-    href: "/case-studies/nexus-os",
+-    image:
+-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCbTEtAirjHiRG8kiUGhARje9c4poKPVayjdY_1pg5u_lK40bU1p5E4XPlwkalfdq7NHvhB4dLnk7op3BmbM-5AgQF9GIN9JMkhSmbP-mGTic29zAe09V-DJXrBgReF581HPYqlV7k7BaD4mves648BmvKxNwey87fn24s7kLg4_WiseaYCl7k8hlIU3iTvNRkap6KnVLvATuXkK1kB7W-Y8GDlVCexswk9tMOYuRCSCauQwT4bGU5KkgyF0YfjPU68C0dZTjfiaEqJ",
+-    tags: ["Real-time Visualization", "Blockchain-Verified"],
+-  },
+-  {
+-    id: "vogue",
+-    title: "Vogue Digital",
+-    blurb: "High-Fashion E-commerce Evolution.",
+-    category: "E-Commerce",
+-    layout: "half",
+-    href: "/case-studies/vogue-digital",
+-    image:
+-      "https://lh3.googleusercontent.com/aida-public/AB6AXuC5QlEL_99BEaevBDbAY00gy5s7tCb7R2yNNhjk90k4nz-61UtrAIR4TlpMcD6--cPnkSdQjgq-3c2l9M-3W1dRlWzZ-U8vnPeAAvt6Hpg4mYo67IjElXbmRQcGOvoN8d68DhwJo2HENXI290P-3Q26d5R0ZnSsJUwHKm9MB2HOMJSlGn0he3YFUEa7GjCJQ6j4xVlJQGjK_bOoJusGt19a3mpEF3EucrKVdvBdRStzJjIazmVi-ufpjM8Qo9RxgzlKuMjg2ojIa5xa",
+-  },
+-  {
+-    id: "kryptos",
+-    title: "Kryptos Protocol",
+-    blurb: "Web3 Infrastructure for Enterprise Security.",
+-    category: "Web3",
+-    layout: "half",
+-    href: "/case-studies/kryptos-protocol",
+-    image:
+-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBTer96E25Uy9FnYTi-kiBoN9vAeZdw-wX1jyoKvlYwH2UVj0iMGrx4Z_ORX22gpeemBbBUAYrCOqd5Z9eWvNbvuLY-OkMJ1toXnYptaJhPgK-ZxWBo7EN-PW0gRGM6K-W2s0o2coFCF_wtFkzSA9xKSG1kb2F92o4aHLNWQUrhRKnpFVFphQC2t1uNjgzhbPk7KyOTp6neBdxYhBeJVpRGAYWdBS5pNJ2DY-FO2SxRCHWpwmKMPQcTrO926iuz1ojlpGjXMCGzS9tb",
+-  },
+-];
+-
+-const filters = ["All Work", "Fintech", "AI & Robotics", "E-Commerce", "Web3"] as const;
+-
+-const spans: Record<Layout, string> = {
+-  featured: "md:col-span-8 h-150",
+-  tall: "md:col-span-4 h-150",
+-  wide: "md:col-span-12 h-100",
+-  half: "md:col-span-6 h-125",
+-};
+-
+-const glassPanel =
+-  "glass rounded-full px-3 py-1 text-[0.625rem] font-bold tracking-[0.15em] uppercase";
+-
+-export function WorkGrid() {
+-  const [active, setActive] = React.useState<string>("All Work");
+-
+-  const shown = React.useMemo(
+-    () => (active === "All Work" ? projects : projects.filter((p) => p.category === active)),
+-    [active]
+-  );
+-
+-  return (
+-    <>
+-      {/* Filters. The source rendered these as inert buttons; wired up here so
+-          they do what they look like they do. */}
+-      <div className="mx-auto mb-16 max-w-7xl px-4 md:px-10">
+-        <div
+-          role="group"
+-          aria-label="Filter work by discipline"
+-          className="scrollbar-none flex items-center gap-2 overflow-x-auto pb-4"
+-        >
+-          {filters.map((filter) => {
+-            const selected = active === filter;
+-            return (
+-              <button
+-                key={filter}
+-                type="button"
+-                aria-pressed={selected}
+-                onClick={() => setActive(filter)}
+-                className={cn(
+-                  "glass rounded-full px-6 py-2 text-[0.8125rem] font-semibold tracking-[0.05em] whitespace-nowrap",
+-                  "transition-colors duration-(--duration-fast)",
+-                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+-                  selected
+-                    ? "border-brand text-brand"
+-                    : "text-ink-tertiary hover:text-brand"
+-                )}
+-              >
+-                {filter}
+-              </button>
+-            );
+-          })}
+-        </div>
+-        <p aria-live="polite" className="sr-only">
+-          Showing {shown.length} {shown.length === 1 ? "project" : "projects"} in {active}.
+-        </p>
+-      </div>
+-
+-      <section className="mx-auto max-w-7xl px-4 pb-32 md:px-10">
+-        <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
+-          {shown.map((project) => (
+-            <article
+-              key={project.id}
+-              data-glow-hot
+-              className={cn(
+-                "glass group relative overflow-hidden rounded-2xl",
+-                spans[project.layout],
+-                project.featured && "border-beam"
+-              )}
+-            >
+-              <Image
+-                src={project.image}
+-                alt=""
+-                fill
+-                sizes="(min-width: 768px) 66vw, 100vw"
+-                className="object-cover transition-transform duration-700 ease-(--ease-out-quint) group-hover:scale-110"
+-              />
+-
+-              {project.layout === "wide" ? (
+-                <>
+-                  <div
+-                    className="absolute inset-0 z-10 bg-graphite-1000/65 transition-colors duration-(--duration-slow) group-hover:bg-graphite-1000/45"
+-                    aria-hidden
+-                  />
+-                  <div className="absolute inset-0 z-20 flex items-center justify-center px-8">
+-                    <div className="max-w-2xl text-center">
+-                      <h3 className="mb-4 font-heading text-[3rem] leading-[1.2] font-bold text-balance text-graphite-25">
+-                        <Link href={project.href} className="after:absolute after:inset-0">
+-                          {project.title}
+-                        </Link>
+-                      </h3>
+-                      <p className="mb-8 leading-relaxed text-graphite-300">{project.blurb}</p>
+-                      <div className="flex flex-wrap justify-center gap-4">
+-                        {project.tags?.map((tag) => (
+-                          <span
+-                            key={tag}
+-                            className="glass rounded-full px-4 py-2 text-sm text-graphite-100"
+-                          >
+-                            {tag}
+-                          </span>
+-                        ))}
+-                      </div>
+-                    </div>
+-                  </div>
+-                </>
+-              ) : (
+-                <>
+-                  <div
+-                    className={cn(
+-                      "absolute inset-0 z-10",
+-                      project.layout === "tall"
+-                        ? "bg-gradient-to-b from-graphite-1000/40 via-transparent to-graphite-1000"
+-                        : "bg-gradient-to-t from-graphite-1000 via-graphite-1000/20 to-transparent"
+-                    )}
+-                    aria-hidden
+-                  />
+-
+-                  {project.featured && (
+-                    <div className="absolute top-8 left-8 z-20 flex gap-3">
+-                      <span className={cn(glassPanel, "text-brand")}>Featured project</span>
+-                      <span className={cn(glassPanel, "text-ion")}>{project.category}</span>
+-                    </div>
+-                  )}
+-
+-                  <div
+-                    className={cn(
+-                      "absolute z-20",
+-                      project.layout === "featured"
+-                        ? "right-10 bottom-10 left-10"
+-                        : "right-8 bottom-8 left-8"
+-                    )}
+-                  >
+-                    {project.eyebrow && (
+-                      <span className="mb-2 block text-[0.625rem] font-bold tracking-[0.15em] text-ion uppercase">
+-                        {project.eyebrow}
+-                      </span>
+-                    )}
+-
+-                    <div
+-                      className={cn(
+-                        project.layout === "featured" &&
+-                          "flex flex-col items-end justify-between gap-6 md:flex-row"
+-                      )}
+-                    >
+-                      <div>
+-                        <h3 className="mb-2 font-heading text-[2rem] leading-[1.3] font-semibold text-graphite-25">
+-                          <Link href={project.href} className="after:absolute after:inset-0">
+-                            {project.title}
+-                          </Link>
+-                        </h3>
+-                        <p
+-                          className={cn(
+-                            "leading-relaxed text-graphite-300",
+-                            project.layout === "featured" && "max-w-md"
+-                          )}
+-                        >
+-                          {project.blurb}
+-                        </p>
+-                      </div>
+-
+-                      {project.metrics && (
+-                        <dl className="flex shrink-0 gap-12">
+-                          {project.metrics.map((metric) => (
+-                            <div key={metric.label} className="text-center">
+-                              <dt className="sr-only">{metric.label}</dt>
+-                              <dd
+-                                data-tabular
+-                                className={cn(
+-                                  "font-heading text-2xl font-bold",
+-                                  metric.tone === "brand" ? "text-brand" : "text-ion"
+-                                )}
+-                              >
+-                                {metric.value}
+-                              </dd>
+-                              <p
+-                                className="text-[0.625rem] tracking-wide text-graphite-300 uppercase"
+-                                aria-hidden
+-                              >
+-                                {metric.label}
+-                              </p>
+-                            </div>
+-                          ))}
+-                        </dl>
+-                      )}
+-                    </div>
+-
+-                    {project.layout === "tall" && (
+-                      <span className="mt-6 inline-flex items-center gap-2 text-[0.8125rem] font-semibold tracking-[0.05em] text-brand">
+-                        View case study
+-                        <ArrowRight
+-                          className="size-4 transition-transform duration-(--duration-normal) group-hover:translate-x-1"
+-                          aria-hidden
+-                        />
+-                      </span>
+-                    )}
+-                  </div>
+-                </>
+-              )}
+-            </article>
+-          ))}
+-        </div>
+-      </section>
+-    </>
+-  );
+-}
+diff --git a/app/(public)/case-studies/page.tsx b/app/(public)/case-studies/page.tsx
+index 031ff6a..f03f0ed 100644
+--- a/app/(public)/case-studies/page.tsx
++++ b/app/(public)/case-studies/page.tsx
+@@ -1,47 +1,63 @@
++import Link from "next/link";
+ import type { Metadata } from "next";
+-import { Aperture } from "lucide-react";
+ 
+-import { CursorGlow } from "@/components/marketing/CursorGlow";
+-import { WorkGrid } from "./WorkGrid";
++import { Button } from "@/components/ui/button";
++import { Card } from "@/components/ui/card";
++import { CaseStudyGrid } from "./CaseStudyGrid";
+ 
+ export const metadata: Metadata = {
+-  title: "Our Work",
++  title: "Case Studies",
+   description:
+-    "Our portfolio represents the nexus of high-performance engineering and visceral design. Explore our latest collaborations.",
++    "Engineered success. Explore how Nexus builds high-availability architecture, headless commerce and decentralised platforms for clients across FinTech, retail, enterprise and Web3.",
+ };
+ 
+ export default function CaseStudiesPage() {
+   return (
+     <>
+       <div className="noise-field" aria-hidden />
+-      <CursorGlow />
+-      {/* The design's obsidian body wash, scoped to this route rather than
+-          pushed into the global stylesheet. */}
+-      <div
+-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,var(--surface),transparent_60%)]"
++      <span
++        className="bloom -top-[10%] -right-[10%] size-[60vw] bg-brand/10 blur-[120px]"
+         aria-hidden
+       />
++      <span
++        className="bloom -bottom-[10%] -left-[10%] size-[50vw] bg-ion/10 blur-[120px]"
++        aria-hidden
++      />
++
++      <div className="relative mx-auto max-w-7xl px-4 pt-12 pb-20 md:px-10">
++        <header className="mb-16">
++          <p className="mb-4 block text-[0.8125rem] font-semibold tracking-[0.3em] text-brand uppercase">
++            Archive 2026
++          </p>
++          <h1 className="max-w-3xl font-heading text-display leading-tight font-bold tracking-tight text-balance text-ink">
++            Engineered Success:
++            <br />
++            <span className="text-ink-secondary opacity-80">Case Studies</span>
++          </h1>
++        </header>
+ 
+-      <section className="relative mx-auto max-w-7xl px-4 pt-12 pb-20 md:px-10">
+-        <div className="flex flex-col items-end justify-between gap-12 md:flex-row">
+-          <div className="max-w-3xl">
+-            <h1 className="mb-6 font-heading text-display leading-tight font-bold text-balance text-ink">
+-              Pioneering <span className="text-brand">Digital Frontiers</span> Through
+-              Technical Excellence.
+-            </h1>
+-            <p className="max-w-xl text-lg leading-relaxed text-ink-secondary">
+-              Our portfolio represents the nexus of high-performance engineering and visceral
+-              design. Explore our latest collaborations.
+-            </p>
+-          </div>
+-          <Aperture
+-            className="size-10 shrink-0 text-brand drop-shadow-[0_0_10px_var(--brand)]"
+-            aria-hidden
+-          />
+-        </div>
+-      </section>
++        <CaseStudyGrid />
+ 
+-      <WorkGrid />
++        <Card
++          variant="glass"
++          className="mt-12 items-center rounded-2xl p-12 text-center"
++        >
++          <h2 className="mb-6 font-heading text-[3rem] leading-[1.2] font-bold text-balance text-ink">
++            Ready to Engineer Your Own Success?
++          </h2>
++          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-ink-secondary">
++            Our team of elite engineers and designers are ready to tackle your most complex
++            digital challenges.
++          </p>
++          <Button
++            size="xl"
++            className="rounded-lg px-10 tracking-widest uppercase"
++            render={<Link href="/contact" />}
++          >
++            Start a Project
++          </Button>
++        </Card>
++      </div>
+     </>
+   );
+ }
+diff --git a/app/(public)/pricing/page.tsx b/app/(public)/pricing/page.tsx
+index 7bc0532..0da86b7 100644
+--- a/app/(public)/pricing/page.tsx
++++ b/app/(public)/pricing/page.tsx
+@@ -1,7 +1,111 @@
+-import { RouteScaffold } from "@/components/shared/RouteScaffold";
++import type { Metadata } from "next";
+ 
+-export const metadata = { title: "Pricing" };
++import { Card } from "@/components/ui/card";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from "@/components/ui/table";
++import { ServiceDirectory } from "./ServiceDirectory";
++
++export const metadata: Metadata = {
++  title: "Capabilities & Pricing",
++  description:
++    "Transparent, scalable solutions tailored to your growth stage. Leverage high-performance delivery through our multi-dimensional engagement frameworks.",
++};
++
++const comparison = {
++  columns: [
++    { label: "Retainer (Core)", tone: "text-brand" },
++    { label: "Project (Milestone)", tone: "text-ion" },
++    { label: "Advisory (Strategic)", tone: "text-chart-4" },
++  ],
++  rows: [
++    {
++      feature: "Staffing Model",
++      values: [
++        "Dedicated squad (fixed capacity)",
++        "Flexible specialists (as needed)",
++        "Principal strategist (on-call)",
++      ],
++    },
++    {
++      feature: "Response Times",
++      values: ["< 4 hours (SLA-guaranteed)", "< 24 hours", "< 8 hours"],
++    },
++    {
++      feature: "Strategy Reviews",
++      values: ["Bi-weekly syncs", "Per milestone", "Monthly deep-dive"],
++    },
++    {
++      feature: "IP Ownership",
++      values: ["Full transfer on payment", "Full transfer on completion", "Usage rights only"],
++    },
++    {
++      feature: "Ideal For",
++      values: [
++        "Continuous product iteration",
++        "Specific brand or product launch",
++        "Long-term vision & roadmap",
++      ],
++    },
++  ],
++};
+ 
+ export default function PricingPage() {
+-  return <RouteScaffold title="Pricing" route="/pricing" />;
++  return (
++    <div className="mx-auto max-w-7xl px-4 py-12 md:px-10 md:py-24">
++      <section className="mx-auto mb-16 max-w-3xl text-center">
++        <h1 className="mb-6 font-heading text-display leading-tight font-bold text-balance text-ink">
++          Our Specialized Capabilities &amp; Pricing Models
++        </h1>
++        <p className="text-lg leading-relaxed text-ink-secondary">
++          Transparent, scalable solutions tailored to your growth stage. Leverage
++          high-performance delivery through our multi-dimensional engagement frameworks.
++        </p>
++      </section>
++
++      <ServiceDirectory />
++
++      <section className="mt-24 flex flex-col gap-12">
++        <div className="mx-auto max-w-2xl text-center">
++          <h2 className="mb-4 font-heading text-[2rem] leading-[1.3] font-semibold text-brand">
++            Engagement Model Comparison
++          </h2>
++          <p className="text-ink-tertiary">
++            Analyze the key differences between our collaboration frameworks to find your
++            perfect fit.
++          </p>
++        </div>
++
++        <Card variant="glass" className="overflow-hidden rounded-2xl">
++          <Table>
++            <TableHeader>
++              <TableRow className="bg-surface-sunken hover:bg-surface-sunken">
++                <TableHead>Feature</TableHead>
++                {comparison.columns.map((col) => (
++                  <TableHead key={col.label} className={col.tone}>
++                    {col.label}
++                  </TableHead>
++                ))}
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {comparison.rows.map((row) => (
++                <TableRow key={row.feature}>
++                  <TableCell className="font-semibold text-ink">{row.feature}</TableCell>
++                  {row.values.map((value, i) => (
++                    <TableCell key={comparison.columns[i].label}>{value}</TableCell>
++                  ))}
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </Card>
++      </section>
++    </div>
++  );
+ }
+diff --git a/app/(public)/services/[slug]/page.tsx b/app/(public)/services/[slug]/page.tsx
+index 7caca91..bc38bbb 100644
+--- a/app/(public)/services/[slug]/page.tsx
++++ b/app/(public)/services/[slug]/page.tsx
+@@ -1,7 +1,255 @@
++import Image from "next/image";
++import Link from "next/link";
++import type { Metadata } from "next";
++import {
++  Gauge,
++  Headset,
++  Layers,
++  LayoutDashboard,
++  Quote,
++  Rocket,
++  RefreshCcw,
++  DraftingCompass,
++  ScanSearch,
++  Zap,
++} from "lucide-react";
++
++import { cn } from "@/lib/utils";
++import { Badge } from "@/components/ui/badge";
++import { Card } from "@/components/ui/card";
+ import { RouteScaffold } from "@/components/shared/RouteScaffold";
++import { RoiForecaster } from "@/components/services/RoiForecaster";
++import { ServiceSectionNav } from "@/components/services/ServiceSectionNav";
++import { StickyCtaBar } from "@/components/services/StickyCtaBar";
++import { services } from "./service-data";
++
++const roadmapIcons = {
++  audit: ScanSearch,
++  architecture: DraftingCompass,
++  sprints: RefreshCcw,
++  handover: Rocket,
++} as const;
++
++const deliverableIcons = {
++  layers: Layers,
++  bolt: Zap,
++  support: Headset,
++  dashboard: LayoutDashboard,
++} as const;
++
++const toneClasses = {
++  brand: { chip: "bg-brand/20 text-brand", text: "text-brand" },
++  orchid: { chip: "bg-chart-3/20 text-chart-3", text: "text-chart-3" },
++} as const;
++
++type Props = { params: { slug: string } };
++
++export function generateMetadata({ params }: Props): Metadata {
++  const service = services[params.slug];
++  if (!service) return { title: "Services detail" };
++  return {
++    title: `${service.title} ${service.titleAccent} Web Engineering`,
++    description: service.blurb,
++  };
++}
++
++export default function ServiceDetailPage({ params }: Props) {
++  const service = services[params.slug];
++
++  // Slugs without written content keep the scaffold, so every mega-menu link
++  // still resolves instead of 404-ing.
++  if (!service) {
++    return <RouteScaffold title="Services detail" route={`/services/${params.slug}`} />;
++  }
++
++  return (
++    <>
++      <div className="mx-auto max-w-7xl px-4 pb-40 md:px-10">
++        <div className="grid gap-10 md:grid-cols-[5rem_1fr] xl:grid-cols-[16rem_1fr]">
++          <ServiceSectionNav />
++
++          <div className="min-w-0">
++            {/* ΓöÇΓöÇ Hero + ROI ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++            <section
++              id="roi"
++              className="grid scroll-mt-28 grid-cols-1 items-center gap-16 py-20 lg:grid-cols-2"
++            >
++              <div className="flex flex-col gap-8">
++                <Badge variant="brand" className="w-fit tracking-widest uppercase">
++                  <span className="relative flex size-2" aria-hidden>
++                    <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-70 motion-reduce:animate-none" />
++                    <span className="relative size-2 rounded-full bg-brand" />
++                  </span>
++                  {service.eyebrow}
++                </Badge>
++
++                <h1 className="font-heading text-[3.5rem] leading-tight font-bold tracking-tight text-balance text-ink lg:text-[4.5rem]">
++                  {service.title} <span className="text-brand">{service.titleAccent}</span> Web
++                  Engineering
++                </h1>
++
++                <p className="max-w-lg text-lg leading-relaxed text-ink-secondary">
++                  {service.blurb}
++                </p>
++
++                <ul className="flex flex-wrap gap-4">
++                  {service.metrics.map((metric) => (
++                    <li
++                      key={metric.label}
++                      className="glass flex items-center gap-2 rounded-lg px-4 py-2"
++                    >
++                      <Gauge className="size-4 shrink-0 text-ion" aria-hidden />
++                      <span className="text-sm font-medium text-ink">{metric.label}</span>
++                    </li>
++                  ))}
++                </ul>
++              </div>
++
++              <RoiForecaster />
++            </section>
++
++            {/* ΓöÇΓöÇ Methodology ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++            <section id="roadmap" className="scroll-mt-28 py-24">
++              <div className="mb-20 text-center">
++                <h2 className="mb-4 font-heading text-[2.5rem] leading-[1.2] font-semibold text-ink">
++                  Technical <span className="text-brand">Methodology</span>
++                </h2>
++                <p className="mx-auto max-w-2xl text-ink-tertiary">
++                  Our rigorous engineering approach ensures every line of code serves a purpose,
++                  maximizing performance and developer experience.
++                </p>
++              </div>
++
++              <ol className="mb-24 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
++                {service.roadmap.map((phase) => {
++                  const Icon = roadmapIcons[phase.icon];
++                  return (
++                    <li key={phase.step} className="group relative">
++                      <span
++                        className="pointer-events-none absolute -top-4 -left-4 font-heading text-[5rem] font-bold text-ink/5 transition-colors duration-(--duration-slow) group-hover:text-brand/10"
++                        aria-hidden
++                      >
++                        {phase.step}
++                      </span>
++                      <Card
++                        variant="glass"
++                        className="h-full gap-4 rounded-xl p-8 transition-colors hover:border-brand/50"
++                      >
++                        <Icon className="size-8 text-brand" aria-hidden />
++                        <h3 className="font-heading text-xl font-semibold text-ink">
++                          <span className="sr-only">Step {phase.step}: </span>
++                          {phase.title}
++                        </h3>
++                        <p className="text-sm leading-relaxed text-ink-tertiary">{phase.body}</p>
++                      </Card>
++                    </li>
++                  );
++                })}
++              </ol>
++
++              <div id="stack" className="scroll-mt-28">
++                <h3 className="sr-only">Tech stack and deliverables</h3>
++                <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
++                  {service.deliverables.map((item) => {
++                    const Icon = deliverableIcons[item.icon];
++                    return (
++                      <li key={item.title}>
++                        <Card variant="glass" className="h-full flex-row gap-4 rounded-lg p-6">
++                          <Icon className="size-5 shrink-0 text-brand" aria-hidden />
++                          <div>
++                            <p className="text-sm font-bold text-ink">{item.title}</p>
++                            <p className="text-xs text-ink-tertiary">{item.note}</p>
++                          </div>
++                        </Card>
++                      </li>
++                    );
++                  })}
++                </ul>
++              </div>
++            </section>
++
++            {/* ΓöÇΓöÇ Proof ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++            <section id="results" className="scroll-mt-28 py-24">
++              <h2 className="mb-16 font-heading text-[2.5rem] leading-[1.2] font-semibold text-ink">
++                Verified <span className="text-brand">Results</span>
++              </h2>
++
++              <div className="mb-32 grid grid-cols-1 gap-12 lg:grid-cols-2">
++                {service.caseStudies.map((study) => {
++                  const tone = toneClasses[study.tone];
++                  return (
++                    <article key={study.title} className="group relative">
++                      <div className="relative h-100 overflow-hidden rounded-2xl">
++                        <Image
++                          src={study.image}
++                          alt=""
++                          fill
++                          sizes="(min-width: 1024px) 50vw, 100vw"
++                          className="object-cover transition-transform duration-700 ease-(--ease-out-quint) group-hover:scale-110"
++                        />
++                        <div
++                          className="absolute inset-0 bg-gradient-to-t from-graphite-1000 via-graphite-1000/30 to-transparent"
++                          aria-hidden
++                        />
++                        <div className="absolute right-6 bottom-6 left-6">
++                          <span
++                            className={cn(
++                              "mb-3 inline-block rounded-full px-3 py-1 text-xs font-bold tracking-wider uppercase backdrop-blur-md",
++                              tone.chip
++                            )}
++                          >
++                            {study.tag}
++                          </span>
++                          <h3 className="font-heading text-3xl font-semibold text-graphite-25">
++                            <Link href={study.href} className="after:absolute after:inset-0">
++                              {study.title}
++                            </Link>
++                          </h3>
++                          <p className={cn("mt-2 text-xl font-bold", tone.text)}>
++                            {study.result}
++                          </p>
++                        </div>
++                      </div>
++                    </article>
++                  );
++                })}
++              </div>
+ 
+-export const metadata = { title: "Services detail" };
++              <ul className="grid grid-cols-1 gap-8 md:grid-cols-3">
++                {service.reviews.map((review) => (
++                  <li key={review.name}>
++                    <Card variant="glass" className="relative h-full rounded-xl p-8">
++                      <Quote
++                        className="absolute top-4 right-4 size-10 text-ink/5"
++                        aria-hidden
++                      />
++                      <blockquote className="mb-6 leading-relaxed text-ink-secondary italic">
++                        {review.quote}
++                      </blockquote>
++                      <figcaption className="flex items-center gap-4">
++                        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-sunken font-bold text-brand">
++                          {review.name
++                            .split(" ")
++                            .map((w) => w[0])
++                            .join("")}
++                        </span>
++                        <span>
++                          <span className="block text-sm font-bold text-ink">{review.name}</span>
++                          <span className="block text-[0.625rem] tracking-wider text-ink-tertiary uppercase">
++                            {review.role}
++                          </span>
++                        </span>
++                      </figcaption>
++                    </Card>
++                  </li>
++                ))}
++              </ul>
++            </section>
++          </div>
++        </div>
++      </div>
+ 
+-export default function ServicesPage() {
+-  return <RouteScaffold title="Services detail" route="/services/[slug]" />;
++      <StickyCtaBar price={service.price} availability={service.availability} />
++    </>
++  );
+ }
+diff --git a/app/admin/clients/page.tsx b/app/admin/clients/page.tsx
+index d4cefde..d516f34 100644
+--- a/app/admin/clients/page.tsx
++++ b/app/admin/clients/page.tsx
+@@ -1,7 +1,37 @@
+-import { RouteScaffold } from "@/components/shared/RouteScaffold";
++import type { Metadata } from "next";
+ 
+-export const metadata = { title: "Clients" };
++import { Badge } from "@/components/ui/badge";
++import { ClientsTable, type ClientRow } from "./ClientsTable";
++
++export const metadata: Metadata = { title: "Client Directory" };
++
++const clients: ClientRow[] = [
++  { id: "c1", name: "Northwind Retail", owner: "Dez Okafor", status: "healthy", mrr: 42000, projects: 3, renews: "12 Nov 2026" },
++  { id: "c2", name: "Halcyon Health", owner: "Mira Kaur", status: "at-risk", mrr: 31500, projects: 2, renews: "03 Sep 2026" },
++  { id: "c3", name: "Lumen Studio", owner: "Dez Okafor", status: "healthy", mrr: 18750, projects: 1, renews: "28 Jan 2027" },
++  { id: "c4", name: "Ardent Logistics", owner: "Sam Ellery", status: "onboarding", mrr: 26000, projects: 2, renews: "15 Mar 2027" },
++  { id: "c5", name: "Verity Financial", owner: "Mira Kaur", status: "healthy", mrr: 38400, projects: 4, renews: "07 Dec 2026" },
++  { id: "c6", name: "Orient Foods", owner: "Sam Ellery", status: "at-risk", mrr: 12800, projects: 1, renews: "22 Aug 2026" },
++  { id: "c7", name: "Kestrel Energy", owner: "Dez Okafor", status: "healthy", mrr: 14750, projects: 2, renews: "09 Feb 2027" },
++  { id: "c8", name: "Nova Fintech", owner: "Mira Kaur", status: "healthy", mrr: 24500, projects: 3, renews: "19 Apr 2027" },
++];
+ 
+ export default function AdminClientsPage() {
+-  return <RouteScaffold title="Clients" route="/admin/clients" />;
++  return (
++    <div className="mx-auto w-full max-w-[1400px] space-y-6 p-5 lg:p-10">
++      <div className="flex flex-wrap items-end justify-between gap-4">
++        <div>
++          <h1 className="font-heading text-[2.5rem] leading-[1.2] font-bold tracking-tight text-ink">
++            Client Directory
++          </h1>
++          <p className="mt-2 text-ink-tertiary">
++            Sorted by revenue. Two accounts are flagged at risk.
++          </p>
++        </div>
++        <Badge variant="warning">2 need attention</Badge>
++      </div>
++
++      <ClientsTable clients={clients} />
++    </div>
++  );
+ }
+diff --git a/app/admin/layout.tsx b/app/admin/layout.tsx
+index a83ab7e..b570e24 100644
+--- a/app/admin/layout.tsx
++++ b/app/admin/layout.tsx
+@@ -1,4 +1,6 @@
+ import { AdminSidebar } from "@/components/layout/AdminSidebar";
++import { AdminCommandBar } from "@/components/layout/AdminCommandBar";
++import { SystemStatusDock } from "@/components/admin/SystemStatusDock";
+ import { TooltipProvider } from "@/components/ui/tooltip";
+ 
+ export default function AdminLayout({ children }: { children: React.ReactNode }) {
+@@ -6,8 +8,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
+     <TooltipProvider>
+       <div className="flex min-h-svh bg-canvas">
+         <AdminSidebar />
++
+         {/* pt-14 clears the fixed mobile nav bar the sidebar renders below `lg`. */}
+-        <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">{children}</div>
++        <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">
++          <AdminCommandBar />
++          {/* Bottom padding keeps the floating status dock off the page content. */}
++          <div className="flex-1 pb-44 sm:pb-36">{children}</div>
++        </div>
++
++        <SystemStatusDock />
+       </div>
+     </TooltipProvider>
+   );
+diff --git a/app/admin/page.tsx b/app/admin/page.tsx
+index bd223e7..8ddc45a 100644
+--- a/app/admin/page.tsx
++++ b/app/admin/page.tsx
+@@ -1,91 +1,147 @@
+-import { CircleDollarSign, FolderKanban, Plus, TrendingUp, Users } from "lucide-react";
++import type { Metadata } from "next";
++import { Bolt, ShieldCheck, TrendingUp, Users } from "lucide-react";
+ 
+-import { Badge } from "@/components/ui/badge";
++import { cn } from "@/lib/utils";
+ import { Button } from "@/components/ui/button";
+-import { DashboardHeader } from "@/components/layout/DashboardHeader";
+-import { StatCard } from "@/components/shared/StatCard";
+-import { ClientsTable, type ClientRow } from "./ClientsTable";
++import { Card } from "@/components/ui/card";
++import { CommandLogs } from "@/components/admin/CommandLogs";
++import { RevenueChart } from "@/components/admin/RevenueChart";
+ 
+-const clients: ClientRow[] = [
+-  { id: "c1", name: "Northwind Retail", owner: "Dez Okafor", status: "healthy", mrr: 42000, projects: 3, renews: "12 Nov 2026" },
+-  { id: "c2", name: "Halcyon Health", owner: "Mira Kaur", status: "at-risk", mrr: 31500, projects: 2, renews: "03 Sep 2026" },
+-  { id: "c3", name: "Lumen Studio", owner: "Dez Okafor", status: "healthy", mrr: 18750, projects: 1, renews: "28 Jan 2027" },
+-  { id: "c4", name: "Ardent Logistics", owner: "Sam Ellery", status: "onboarding", mrr: 26000, projects: 2, renews: "15 Mar 2027" },
+-  { id: "c5", name: "Verity Financial", owner: "Mira Kaur", status: "healthy", mrr: 38400, projects: 4, renews: "07 Dec 2026" },
+-  { id: "c6", name: "Orient Foods", owner: "Sam Ellery", status: "at-risk", mrr: 12800, projects: 1, renews: "22 Aug 2026" },
+-  { id: "c7", name: "Kestrel Energy", owner: "Dez Okafor", status: "healthy", mrr: 14750, projects: 2, renews: "09 Feb 2027" },
++export const metadata: Metadata = { title: "Executive Dashboard" };
++
++const health = [
++  { label: "On-Time Completion", value: "94%", fill: 94, bar: "bg-chart-1", text: "text-chart-1" },
++  { label: "Resource Utilization", value: "78%", fill: 78, bar: "bg-chart-2", text: "text-chart-2" },
++  { label: "Client Satisfaction", value: "4.9/5", fill: 98, bar: "bg-chart-3", text: "text-chart-3" },
+ ];
+ 
+-export default function AdminOverviewPage() {
+-  return (
+-    <>
+-      <DashboardHeader
+-        title="Executive overview"
+-        description="Where the agency stands this month, and what needs a decision from you."
+-        breadcrumbs={[{ label: "Admin", href: "/admin" }, { label: "Overview" }]}
+-        actions={
+-          <Button size="sm">
+-            <Plus />
+-            New client
+-          </Button>
+-        }
+-      />
++const summary = [
++  {
++    icon: TrendingUp,
++    chip: "bg-ion/10 text-ion",
++    title: "Active Pipeline",
++    value: "$2,140,000",
++    note: "+18% growth from previous quarter",
++    featured: false,
++  },
++  {
++    icon: Users,
++    chip: "bg-brand/10 text-brand",
++    title: "Talent Overhead",
++    value: "42 Units",
++    note: "3 open roles in High-Performance Labs",
++    featured: false,
++  },
++  {
++    icon: Bolt,
++    chip: "bg-brand/20 text-brand",
++    title: "Agency Velocity",
++    value: "High",
++    note: "Optimal delivery speed maintained for 12 days",
++    featured: true,
++  },
++];
+ 
+-      <div className="flex flex-col gap-6 px-5 py-6 lg:px-8">
+-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+-          <StatCard
+-            label="Monthly recurring revenue"
+-            value="$184.2k"
+-            delta="+12.4%"
+-            direction="up"
+-            caption="vs. $163.9k last month"
+-            icon={CircleDollarSign}
+-            series={[118, 132, 127, 149, 161, 158, 184]}
+-          />
+-          <StatCard
+-            label="Active projects"
+-            value="18"
+-            delta="+3"
+-            direction="up"
+-            caption="4 entering review this week"
+-            icon={FolderKanban}
+-            series={[12, 13, 13, 15, 16, 15, 18]}
+-          />
+-          <StatCard
+-            label="Staff utilisation"
+-            value="87%"
+-            delta="2.1%"
+-            direction="down"
+-            positiveIsGood
+-            caption="Target band is 78ΓÇô85%"
+-            icon={Users}
+-            series={[81, 83, 84, 86, 88, 89, 87]}
+-          />
+-          <StatCard
+-            label="Pipeline value"
+-            value="$612k"
+-            delta="+8.9%"
+-            direction="up"
+-            caption="9 opportunities in late stage"
+-            icon={TrendingUp}
+-            series={[430, 452, 488, 501, 540, 562, 612]}
+-          />
++export default function AdminDashboardPage() {
++  return (
++    <div className="mx-auto w-full max-w-[1400px] space-y-8 p-5 lg:p-10">
++      <div className="flex flex-wrap items-end justify-between gap-4">
++        <div>
++          <h1 className="font-heading text-[2.5rem] leading-[1.2] font-bold tracking-tight text-ink">
++            Executive Dashboard
++          </h1>
++          <p className="mt-2 text-ink-tertiary">
++            Real-time oversight of agency performance and systems.
++          </p>
+         </div>
++        <Button size="lg" className="rounded-lg">
++          <ShieldCheck />
++          Run System Audit
++        </Button>
++      </div>
+ 
+-        <section className="flex flex-col gap-4">
+-          <div className="flex flex-wrap items-center justify-between gap-3">
+-            <div>
+-              <h2 className="font-heading text-base font-semibold text-ink">Client accounts</h2>
+-              <p className="mt-0.5 text-sm text-ink-tertiary">
+-                Sorted by revenue. Two accounts are flagged at risk.
+-              </p>
+-            </div>
+-            <Badge variant="warning">2 need attention</Badge>
++      <div className="grid grid-cols-12 gap-6">
++        <Card
++          variant="glass"
++          className="border-beam col-span-12 rounded-2xl p-6 lg:col-span-8"
++        >
++          <RevenueChart />
++        </Card>
++
++        <Card
++          variant="glass"
++          className="col-span-12 justify-between rounded-2xl p-6 lg:col-span-4"
++        >
++          <div>
++            <h3 className="mb-6 font-heading text-xl font-semibold text-ink">Delivery Health</h3>
++            <dl className="flex flex-col gap-4">
++              {health.map((row) => (
++                <div key={row.label} className="flex flex-col gap-2">
++                  <div className="flex justify-between text-xs">
++                    <dt className="text-ink-tertiary">{row.label}</dt>
++                    <dd data-tabular className={cn("font-bold", row.text)}>
++                      {row.value}
++                    </dd>
++                  </div>
++                  {/* Decorative ΓÇö the figure above carries the value. */}
++                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-line" aria-hidden>
++                    <div
++                      className={cn("h-full rounded-full", row.bar)}
++                      style={{ width: `${row.fill}%` }}
++                    />
++                  </div>
++                </div>
++              ))}
++            </dl>
+           </div>
+ 
+-          <ClientsTable clients={clients} />
+-        </section>
++          <p className="mt-8 flex items-center gap-3 rounded-xl border border-success-line bg-success-subtle p-4">
++            <span className="size-2 shrink-0 rounded-full bg-success" aria-hidden />
++            <span className="text-[0.6875rem] font-bold text-ink">
++              No critical blockers reported today
++            </span>
++          </p>
++        </Card>
++
++        {summary.map((item) => (
++          <Card
++            key={item.title}
++            variant="glass"
++            className={cn(
++              "col-span-12 rounded-2xl p-6 md:col-span-4",
++              item.featured && "border-brand/20 bg-brand/5"
++            )}
++          >
++            <div className="mb-4 flex items-center gap-4">
++              <span className={cn("grid size-10 place-items-center rounded-full", item.chip)}>
++                <item.icon className="size-5" aria-hidden />
++              </span>
++              <h3 className="font-heading text-base font-bold text-ink">{item.title}</h3>
++            </div>
++            <p
++              data-tabular
++              className={cn(
++                "font-heading text-[2rem] leading-none font-bold",
++                item.featured ? "text-brand" : "text-ink"
++              )}
++            >
++              {item.value}
++            </p>
++            <p
++              className={cn(
++                "mt-2 text-[0.8125rem]",
++                item.featured ? "text-brand/70" : "text-ink-tertiary"
++              )}
++            >
++              {item.note}
++            </p>
++          </Card>
++        ))}
++
++        <Card variant="glass" className="col-span-12 rounded-2xl p-6">
++          <CommandLogs />
++        </Card>
+       </div>
+-    </>
++    </div>
+   );
+ }
+diff --git a/components/layout/AdminSidebar.tsx b/components/layout/AdminSidebar.tsx
+index 921480a..3312dc6 100644
+--- a/components/layout/AdminSidebar.tsx
++++ b/components/layout/AdminSidebar.tsx
+@@ -1,86 +1,82 @@
+ "use client";
+ 
+ import {
+-  BarChart3,
+-  Bell,
+-  Building2,
+-  CalendarDays,
+-  FileText,
+-  FolderKanban,
+-  LayoutDashboard,
+-  Receipt,
++  Boxes,
++  FileSignature,
++  Layers,
++  LifeBuoy,
++  MessageSquareQuote,
+   Settings,
+   ShieldCheck,
+-  Sparkles,
+-  Star,
++  SquareUser,
+   Users,
++  Wallet,
++  LayoutDashboard,
+ } from "lucide-react";
+ 
++import { Button } from "@/components/ui/button";
+ import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
+ 
+ const sections: NavSection[] = [
+   {
+     items: [
+-      { href: "/admin", label: "Executive", icon: LayoutDashboard, exact: true },
+-      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+-    ],
+-  },
+-  {
+-    label: "Operations",
+-    items: [
+-      { href: "/admin/clients", label: "Clients", icon: Building2 },
+-      { href: "/admin/projects", label: "Projects", icon: FolderKanban },
+-      { href: "/admin/staff", label: "Staff", icon: Users },
+-      { href: "/admin/meetings", label: "Meetings", icon: CalendarDays },
+-    ],
+-  },
+-  {
+-    label: "Commercial",
+-    items: [
+-      { href: "/admin/services", label: "Services", icon: Sparkles },
+-      { href: "/admin/invoices", label: "Invoices", icon: Receipt, badge: 4 },
+-      { href: "/admin/reviews", label: "Review queue", icon: Star, badge: 2 },
+-    ],
+-  },
+-  {
+-    label: "Content",
+-    items: [{ href: "/admin/content/blog", label: "CMS", icon: FileText }],
+-  },
+-  {
+-    label: "System",
+-    items: [
+-      { href: "/admin/notifications", label: "Notifications", icon: Bell },
+-      { href: "/admin/settings/security", label: "Security", icon: ShieldCheck },
+-      { href: "/admin/settings", label: "Settings", icon: Settings, exact: true },
++      { href: "/admin", label: "Executive Analytics", icon: LayoutDashboard, exact: true },
++      { href: "/admin/clients", label: "Client Directory", icon: Users },
++      { href: "/admin/staff", label: "Staff & Roles", icon: SquareUser },
++      { href: "/admin/services", label: "Services Catalog", icon: Boxes },
++      { href: "/admin/projects", label: "Project Templates", icon: Layers },
++      { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, badge: 4 },
++      { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote, badge: 2 },
++      { href: "/admin/content/blog", label: "CMS & Content", icon: FileSignature },
++      { href: "/admin/settings", label: "Security & Audit Logs", icon: ShieldCheck, exact: true },
+     ],
+   },
+ ];
+ 
+-const defaultUser: SidebarUser = { name: "Alex Mercer", role: "Agency Owner" };
++const defaultUser: SidebarUser = { name: "Alex Vance", role: "Executive Admin" };
++
++/** Live infrastructure readouts, pinned above the navigation. */
++function SystemBadges({ load = 24, redis = 98 }: { load?: number; redis?: number }) {
++  return (
++    <div className="flex flex-col gap-2">
++      <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-sunken px-3 py-2">
++        <span className="text-[0.6875rem] font-medium text-ink-secondary">System Load</span>
++        <span data-tabular className="text-[0.6875rem] font-bold text-ion">
++          {load}%
++        </span>
++      </div>
++      <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-sunken px-3 py-2">
++        <span className="text-[0.6875rem] font-medium text-ink-secondary">Redis</span>
++        <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold text-success">
++          <span className="relative flex size-1.5" aria-hidden>
++            <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-70 motion-reduce:animate-none" />
++            <span className="relative size-1.5 rounded-full bg-success" />
++          </span>
++          <span data-tabular>{redis}% Healthy</span>
++        </span>
++      </div>
++    </div>
++  );
++}
+ 
+ export function AdminSidebar({ user = defaultUser }: { user?: SidebarUser }) {
+   return (
+     <Sidebar
+-      sub="Command"
++      sub="Command Center"
+       sections={sections}
+       user={user}
+-      header={
+-        <dl className="grid grid-cols-2 gap-2">
+-          <div className="rounded-lg bg-surface-sunken px-3 py-2">
+-            <dt className="text-[0.625rem] tracking-wide text-ink-tertiary uppercase">MRR</dt>
+-            <dd data-tabular className="font-heading text-sm font-semibold text-ink">
+-              $184.2k
+-            </dd>
+-          </div>
+-          <div className="rounded-lg bg-surface-sunken px-3 py-2">
+-            <dt className="text-[0.625rem] tracking-wide text-ink-tertiary uppercase">
+-              Pipeline
+-            </dt>
+-            <dd data-tabular className="font-heading text-sm font-semibold text-ink">
+-              $612k
+-            </dd>
+-          </div>
+-        </dl>
++      header={<SystemBadges />}
++      footer={
++        <div className="flex flex-col gap-1">
++          <Button variant="ghost" size="sm" className="w-full justify-start">
++            <Settings />
++            Settings
++          </Button>
++          <Button variant="ghost" size="sm" className="w-full justify-start">
++            <LifeBuoy />
++            Support
++          </Button>
++        </div>
+       }
+     />
+   );
+diff --git a/components/staff/FloatingTimer.tsx b/components/staff/FloatingTimer.tsx
+index d51c715..97c5e70 100644
+--- a/components/staff/FloatingTimer.tsx
++++ b/components/staff/FloatingTimer.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import * as React from "react";
+-import { Maximize2, Pause, Play, Square } from "lucide-react";
++import { Maximize2, Minimize2, Pause, Play, Square } from "lucide-react";
+ 
+ import { cn } from "@/lib/utils";
+ import { Button } from "@/components/ui/button";
+@@ -30,6 +30,7 @@ export function FloatingTimer({
+ }) {
+   const [elapsed, setElapsed] = React.useState(startSeconds);
+   const [running, setRunning] = React.useState(true);
++  const [collapsed, setCollapsed] = React.useState(false);
+ 
+   React.useEffect(() => {
+     if (!running) return;
+@@ -37,72 +38,116 @@ export function FloatingTimer({
+     return () => clearInterval(id);
+   }, [running]);
+ 
++  // Collapsed: a pill small enough to sit beside content rather than over it.
++  // The source drew this control but never wired it to anything.
++  if (collapsed) {
++    return (
++      <button
++        type="button"
++        onClick={() => setCollapsed(false)}
++        aria-label={`Expand time tracker. Elapsed ${format(elapsed)} on ${project}.`}
++        className={cn(
++          "glass fixed right-4 bottom-4 z-50 flex items-center gap-2.5 rounded-full py-2 pr-3 pl-3.5 shadow-e3",
++          "transition-[transform,border-color] duration-(--duration-normal) ease-(--ease-out-quint)",
++          "hover:-translate-y-0.5 hover:border-brand-line",
++          "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
++        )}
++      >
++        <span className="relative flex size-2" aria-hidden>
++          {running && (
++            <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-70 motion-reduce:animate-none" />
++          )}
++          <span
++            className={cn("relative size-2 rounded-full", running ? "bg-brand" : "bg-ink-tertiary")}
++          />
++        </span>
++        <span data-tabular className="font-heading text-sm font-bold tracking-wider text-ink">
++          {format(elapsed)}
++        </span>
++        <Maximize2 className="size-3.5 text-ink-tertiary" aria-hidden />
++      </button>
++    );
++  }
++
+   return (
+     <aside
+       aria-label="Active time tracker"
+       className={cn(
+-        "glass fixed right-4 bottom-4 z-50 w-72 rounded-xl p-4 shadow-e4",
++        // Below `sm` a 18rem card covers most of a phone screen and sits on top
++        // of the page content, so it collapses to a single-row bar instead.
++        "glass fixed inset-x-4 bottom-4 z-50 rounded-xl p-3 shadow-e4",
++        "sm:inset-x-auto sm:right-4 sm:w-72 sm:p-4",
+         "transition-[transform,border-color] duration-(--duration-normal) ease-(--ease-out-quint)",
+         "hover:-translate-y-0.5 hover:border-brand-line"
+       )}
+     >
+-      <div className="mb-4 flex items-center justify-between">
+-        <p className="flex items-center gap-2">
+-          <span className="relative flex size-2" aria-hidden>
+-            {running && (
+-              <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-70 motion-reduce:animate-none" />
+-            )}
+-            <span
+-              className={cn(
+-                "relative size-2 rounded-full",
+-                running ? "bg-brand" : "bg-ink-tertiary"
++      <div className="flex items-center gap-3 sm:block">
++        <div className="flex shrink-0 items-center gap-2 sm:mb-4 sm:justify-between">
++          <p className="flex items-center gap-2">
++            <span className="relative flex size-2" aria-hidden>
++              {running && (
++                <span className="absolute inset-0 animate-ping rounded-full bg-brand opacity-70 motion-reduce:animate-none" />
+               )}
+-            />
+-          </span>
+-          <span className="text-[0.625rem] font-semibold tracking-wider text-brand uppercase">
+-            {running ? "Active timer" : "Paused"}
+-          </span>
+-        </p>
+-        <Button variant="ghost" size="icon-xs" aria-label="Expand timer">
+-          <Maximize2 />
+-        </Button>
+-      </div>
+-
+-      <div className="mb-4 min-w-0">
+-        <p className="truncate text-sm font-medium text-ink">{project}</p>
+-        <p className="truncate text-xs text-ink-tertiary">{task}</p>
+-      </div>
+-
+-      <div className="flex items-center justify-between gap-2">
+-        {/* aria-live off: a counter that announces every second is unusable. The
+-            value is still readable on demand via the label. */}
+-        <p
+-          data-tabular
+-          aria-label={`Elapsed time ${format(elapsed)}`}
+-          className="font-heading text-2xl font-bold tracking-wider text-ink"
+-        >
+-          {format(elapsed)}
+-        </p>
+-        <div className="flex gap-2">
++              <span
++                className={cn(
++                  "relative size-2 rounded-full",
++                  running ? "bg-brand" : "bg-ink-tertiary"
++                )}
++              />
++            </span>
++            <span className="hidden text-[0.625rem] font-semibold tracking-wider text-brand uppercase sm:inline">
++              {running ? "Active timer" : "Paused"}
++            </span>
++          </p>
+           <Button
+-            variant="outline"
+-            size="icon"
+-            onClick={() => setRunning((r) => !r)}
+-            aria-label={running ? "Pause timer" : "Resume timer"}
++            variant="ghost"
++            size="icon-xs"
++            aria-label="Collapse timer"
++            onClick={() => setCollapsed(true)}
++            className="hidden sm:inline-flex"
+           >
+-            {running ? <Pause /> : <Play />}
++            <Minimize2 />
+           </Button>
+-          <Button
+-            variant="destructive"
+-            size="sm"
+-            onClick={() => {
+-              setRunning(false);
+-              setElapsed(0);
+-            }}
++        </div>
++
++        <div className="min-w-0 flex-1 sm:mb-4">
++          <p className="truncate text-sm font-medium text-ink">{project}</p>
++          <p className="hidden truncate text-xs text-ink-tertiary sm:block">{task}</p>
++        </div>
++
++        <div className="flex shrink-0 items-center gap-2 sm:justify-between">
++          {/* No aria-live: a counter that announces every second is unusable.
++              The value stays readable on demand through the label. */}
++          <p
++            data-tabular
++            aria-label={`Elapsed time ${format(elapsed)}`}
++            className="font-heading text-base font-bold tracking-wider text-ink sm:text-2xl"
+           >
+-            <Square />
+-            Stop &amp; log
+-          </Button>
++            {format(elapsed)}
++          </p>
++          <div className="flex gap-2">
++            <Button
++              variant="outline"
++              size="icon-sm"
++              className="sm:size-9.5"
++              onClick={() => setRunning((r) => !r)}
++              aria-label={running ? "Pause timer" : "Resume timer"}
++            >
++              {running ? <Pause /> : <Play />}
++            </Button>
++            <Button
++              variant="destructive"
++              size="sm"
++              onClick={() => {
++                setRunning(false);
++                setElapsed(0);
++              }}
++            >
++              <Square />
++              <span className="hidden sm:inline">Stop &amp; log</span>
++              <span className="sr-only sm:hidden">Stop and log</span>
++            </Button>
++          </div>
+         </div>
+       </div>
+     </aside>
+diff --git a/next.config.mjs b/next.config.mjs
+index 0bda189..7d8531b 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -1,6 +1,12 @@
+ /** @type {import('next').NextConfig} */
+ const nextConfig = {
+   reactStrictMode: true,
++  // `next build` and `next dev` share `.next/` by default, so running a build
++  // while a dev server is up overwrites the chunks that server is still holding
++  // in memory ΓÇö it then 500s with "Cannot find module './<id>.js'" until the
++  // cache is cleared. Set NEXT_DIST_DIR to build into a separate directory:
++  //   NEXT_DIST_DIR=.next-build npx next build
++  distDir: process.env.NEXT_DIST_DIR || ".next",
+   images: {
+     remotePatterns: [
+       {
+diff --git a/push.ps1 b/push.ps1
+deleted file mode 100644
+index 1781c06..0000000
+--- a/push.ps1
++++ /dev/null
+@@ -1,32 +0,0 @@
+-$commitMessage = @"
+-feat: complete initial project structure and core features
+-
+-This commit includes the foundational setup and core feature implementation for the Nexus Digital Agency platform.
+-
+-Features & Modules:
+-- Public Pages: About, Blog, Book Meeting, Case Studies, Contact, Pricing, Reviews, and Services pages.
+-- Authentication: Integrated next-auth for secure login/registration workflows.
+-- Portals: Added dedicated layouts and pages for Admin, Client, and Staff portals.
+-- API Layer: Created Next.js API routes for handling backend logic.
+-- Database: Integrated Prisma ORM with initial schema setup.
+-
+-UI & Components:
+-- Theming: Added a theme-provider for light/dark mode support.
+-- Core UI: Reusable base UI components utilizing Tailwind CSS and Radix UI.
+-- Marketing UI: Dedicated marketing components for landing pages.
+-- Animations: Integrated framer-motion (motion) and tw-animate-css for fluid UI animations.
+-- Layouts: Shared navigation, headers, footers, and portal-specific layouts.
+-
+-Tech Stack & Configuration:
+-- Next.js 14 App Router, TypeScript, and Tailwind CSS v4.
+-- Upstash Redis & Ratelimit for performance and security.
+-- ESLint, Prettier, and Playwright for code quality and testing.
+-"@
+-
+-git init
+-git add .
+-git commit -m $commitMessage
+-git branch -M main
+-git remote remove origin 2>$null
+-git remote add origin https://github.com/shahriar-emon-dev/Nexus-Digital.git
+-git push -u origin main
+diff --git a/tsconfig.json b/tsconfig.json
+index 5ddf5a5..88c53ba 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -1,7 +1,11 @@
+ {
+   "compilerOptions": {
+     "target": "ES2022",
+-    "lib": ["dom", "dom.iterable", "esnext"],
++    "lib": [
++      "dom",
++      "dom.iterable",
++      "esnext"
++    ],
+     "allowJs": true,
+     "skipLibCheck": true,
+     "strict": true,
+@@ -19,9 +23,19 @@
+       }
+     ],
+     "paths": {
+-      "@/*": ["./*"]
++      "@/*": [
++        "./*"
++      ]
+     }
+   },
+-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+-  "exclude": ["node_modules"]
++  "include": [
++    "next-env.d.ts",
++    "**/*.ts",
++    "**/*.tsx",
++    ".next/types/**/*.ts",
++    ".next-build/types/**/*.ts"
++  ],
++  "exclude": [
++    "node_modules"
++  ]
+ }

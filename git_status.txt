@@ -1,0 +1,38 @@
+﻿On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	renamed:    app/admin/ClientsTable.tsx -> app/admin/clients/ClientsTable.tsx
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .gitignore
+	deleted:    .staff.mjs
+	deleted:    app/(public)/case-studies/WorkGrid.tsx
+	modified:   app/(public)/case-studies/page.tsx
+	modified:   app/(public)/pricing/page.tsx
+	modified:   app/(public)/services/[slug]/page.tsx
+	modified:   app/admin/clients/page.tsx
+	modified:   app/admin/layout.tsx
+	modified:   app/admin/page.tsx
+	modified:   components/layout/AdminSidebar.tsx
+	modified:   components/layout/PublicHeader.tsx
+	modified:   components/staff/FloatingTimer.tsx
+	modified:   next.config.mjs
+	deleted:    push.ps1
+	modified:   tsconfig.json
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	app/(public)/case-studies/CaseStudyGrid.tsx
+	app/(public)/pricing/ServiceDirectory.tsx
+	app/(public)/services/[slug]/service-data.ts
+	components/admin/
+	components/layout/AdminCommandBar.tsx
+	components/services/
+	git_diff.txt
+	git_status.txt
+	lib/case-studies.ts
+

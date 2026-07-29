@@ -1,86 +1,82 @@
 "use client";
 
 import {
-  BarChart3,
-  Bell,
-  Building2,
-  CalendarDays,
-  FileText,
-  FolderKanban,
-  LayoutDashboard,
-  Receipt,
+  Boxes,
+  FileSignature,
+  Layers,
+  LifeBuoy,
+  MessageSquareQuote,
   Settings,
   ShieldCheck,
-  Sparkles,
-  Star,
+  SquareUser,
   Users,
+  Wallet,
+  LayoutDashboard,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
 
 const sections: NavSection[] = [
   {
     items: [
-      { href: "/admin", label: "Executive", icon: LayoutDashboard, exact: true },
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { href: "/admin/clients", label: "Clients", icon: Building2 },
-      { href: "/admin/projects", label: "Projects", icon: FolderKanban },
-      { href: "/admin/staff", label: "Staff", icon: Users },
-      { href: "/admin/meetings", label: "Meetings", icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Commercial",
-    items: [
-      { href: "/admin/services", label: "Services", icon: Sparkles },
-      { href: "/admin/invoices", label: "Invoices", icon: Receipt, badge: 4 },
-      { href: "/admin/reviews", label: "Review queue", icon: Star, badge: 2 },
-    ],
-  },
-  {
-    label: "Content",
-    items: [{ href: "/admin/content/blog", label: "CMS", icon: FileText }],
-  },
-  {
-    label: "System",
-    items: [
-      { href: "/admin/notifications", label: "Notifications", icon: Bell },
-      { href: "/admin/settings/security", label: "Security", icon: ShieldCheck },
-      { href: "/admin/settings", label: "Settings", icon: Settings, exact: true },
+      { href: "/admin", label: "Executive Analytics", icon: LayoutDashboard, exact: true },
+      { href: "/admin/clients", label: "Client Directory", icon: Users },
+      { href: "/admin/staff", label: "Staff & Roles", icon: SquareUser },
+      { href: "/admin/services", label: "Services Catalog", icon: Boxes },
+      { href: "/admin/projects", label: "Project Templates", icon: Layers },
+      { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, badge: 4 },
+      { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote, badge: 2 },
+      { href: "/admin/content/blog", label: "CMS & Content", icon: FileSignature },
+      { href: "/admin/settings", label: "Security & Audit Logs", icon: ShieldCheck, exact: true },
     ],
   },
 ];
 
-const defaultUser: SidebarUser = { name: "Alex Mercer", role: "Agency Owner" };
+const defaultUser: SidebarUser = { name: "Alex Vance", role: "Executive Admin" };
+
+/** Live infrastructure readouts, pinned above the navigation. */
+function SystemBadges({ load = 24, redis = 98 }: { load?: number; redis?: number }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-sunken px-3 py-2">
+        <span className="text-[0.6875rem] font-medium text-ink-secondary">System Load</span>
+        <span data-tabular className="text-[0.6875rem] font-bold text-ion">
+          {load}%
+        </span>
+      </div>
+      <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-sunken px-3 py-2">
+        <span className="text-[0.6875rem] font-medium text-ink-secondary">Redis</span>
+        <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold text-success">
+          <span className="relative flex size-1.5" aria-hidden>
+            <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-70 motion-reduce:animate-none" />
+            <span className="relative size-1.5 rounded-full bg-success" />
+          </span>
+          <span data-tabular>{redis}% Healthy</span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function AdminSidebar({ user = defaultUser }: { user?: SidebarUser }) {
   return (
     <Sidebar
-      sub="Command"
+      sub="Command Center"
       sections={sections}
       user={user}
-      header={
-        <dl className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-surface-sunken px-3 py-2">
-            <dt className="text-[0.625rem] tracking-wide text-ink-tertiary uppercase">MRR</dt>
-            <dd data-tabular className="font-heading text-sm font-semibold text-ink">
-              $184.2k
-            </dd>
-          </div>
-          <div className="rounded-lg bg-surface-sunken px-3 py-2">
-            <dt className="text-[0.625rem] tracking-wide text-ink-tertiary uppercase">
-              Pipeline
-            </dt>
-            <dd data-tabular className="font-heading text-sm font-semibold text-ink">
-              $612k
-            </dd>
-          </div>
-        </dl>
+      header={<SystemBadges />}
+      footer={
+        <div className="flex flex-col gap-1">
+          <Button variant="ghost" size="sm" className="w-full justify-start">
+            <Settings />
+            Settings
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full justify-start">
+            <LifeBuoy />
+            Support
+          </Button>
+        </div>
       }
     />
   );
