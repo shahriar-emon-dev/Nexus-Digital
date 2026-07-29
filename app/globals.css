@@ -1,0 +1,773 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* =============================================================================
+   NEXUS DESIGN SYSTEM — "Jade & Ion"
+   -----------------------------------------------------------------------------
+   Brand thesis
+     JADE (h163) is the identity colour — an oxidised, deep emerald, never neon.
+     ION  (h268) is the electric counterpoint: interaction, links, the "nexus"
+          (connection) motif. Two-colour signatures are what make a brand
+          recognisable; a single hue plus its own tints does not.
+     GRAPHITE (h185, chroma 0.002–0.016) is the neutral. It is *not* grey — it
+          carries a whisper of the brand hue so every surface belongs to the
+          same world, without any surface reading as "green".
+
+   The entire WARM range is deliberately left free of brand duty so that amber /
+   crimson can carry status meaning (overdue invoices, failed builds, warnings)
+   without ever colliding with the brand.
+
+   Everything below is generated in OKLCH with in-gamut chroma clipping, and the
+   contrast + colourblind figures in the comments are measured, not estimated.
+   ========================================================================== */
+
+@custom-variant dark (&:is(.dark *));
+
+/* -----------------------------------------------------------------------------
+   1. PRIMITIVES — the raw ramps. Never referenced directly by a component;
+      components speak only the semantic layer in §2.
+   -------------------------------------------------------------------------- */
+@theme {
+  /* ── jade · brand primary ────────────────────────────────────────────────── */
+  --color-jade-50: oklch(0.972 0.019 163);
+  --color-jade-100: oklch(0.945 0.041 163);
+  --color-jade-200: oklch(0.895 0.075 163);
+  --color-jade-300: oklch(0.828 0.108 163);
+  --color-jade-400: oklch(0.745 0.138 163);
+  --color-jade-500: oklch(0.66 0.142 163);
+  --color-jade-600: oklch(0.575 0.124 163);
+  --color-jade-700: oklch(0.497 0.107 163);
+  --color-jade-800: oklch(0.425 0.092 163);
+  --color-jade-900: oklch(0.36 0.078 163);
+  --color-jade-950: oklch(0.255 0.055 163);
+
+  /* ── ion · brand secondary ───────────────────────────────────────────────── */
+  --color-ion-50: oklch(0.972 0.013 268);
+  --color-ion-100: oklch(0.945 0.026 268);
+  --color-ion-200: oklch(0.895 0.05 268);
+  --color-ion-300: oklch(0.828 0.085 268);
+  --color-ion-400: oklch(0.745 0.13 268);
+  --color-ion-500: oklch(0.66 0.179 268);
+  --color-ion-600: oklch(0.575 0.191 268);
+  --color-ion-700: oklch(0.497 0.164 268);
+  --color-ion-800: oklch(0.425 0.135 268);
+  --color-ion-900: oklch(0.36 0.111 268);
+  --color-ion-950: oklch(0.255 0.078 268);
+
+  /* ── graphite · brand-tinted neutral ─────────────────────────────────────── */
+  --color-graphite-25: oklch(0.992 0.002 185);
+  --color-graphite-50: oklch(0.981 0.003 185);
+  --color-graphite-100: oklch(0.964 0.004 185);
+  --color-graphite-200: oklch(0.93 0.006 185);
+  --color-graphite-300: oklch(0.878 0.008 185);
+  --color-graphite-400: oklch(0.755 0.011 185);
+  --color-graphite-500: oklch(0.632 0.013 185);
+  --color-graphite-600: oklch(0.52 0.014 185);
+  --color-graphite-700: oklch(0.432 0.015 185);
+  --color-graphite-800: oklch(0.33 0.016 185);
+  --color-graphite-900: oklch(0.248 0.015 185);
+  --color-graphite-950: oklch(0.185 0.013 185);
+  --color-graphite-975: oklch(0.14 0.011 185);
+  --color-graphite-1000: oklch(0.108 0.009 185);
+
+  /* ── status ramps · reserved meaning, never used for series identity ─────── */
+  --color-amber-50: oklch(0.972 0.022 95);
+  --color-amber-100: oklch(0.945 0.046 95);
+  --color-amber-200: oklch(0.895 0.085 95);
+  --color-amber-300: oklch(0.828 0.122 95);
+  --color-amber-400: oklch(0.745 0.152 95);
+  --color-amber-500: oklch(0.66 0.135 95);
+  --color-amber-600: oklch(0.575 0.118 95);
+  --color-amber-700: oklch(0.497 0.102 95);
+  --color-amber-800: oklch(0.425 0.087 95);
+  --color-amber-900: oklch(0.36 0.074 95);
+  --color-amber-950: oklch(0.255 0.053 95);
+
+  --color-crimson-50: oklch(0.972 0.014 22);
+  --color-crimson-100: oklch(0.945 0.027 22);
+  --color-crimson-200: oklch(0.895 0.054 22);
+  --color-crimson-300: oklch(0.828 0.095 22);
+  --color-crimson-400: oklch(0.745 0.154 22);
+  --color-crimson-500: oklch(0.66 0.2 22);
+  --color-crimson-600: oklch(0.575 0.186 22);
+  --color-crimson-700: oklch(0.497 0.16 22);
+  --color-crimson-800: oklch(0.425 0.132 22);
+  --color-crimson-900: oklch(0.36 0.108 22);
+  --color-crimson-950: oklch(0.255 0.076 22);
+
+  --color-azure-50: oklch(0.972 0.016 232);
+  --color-azure-100: oklch(0.945 0.032 232);
+  --color-azure-200: oklch(0.895 0.062 232);
+  --color-azure-300: oklch(0.828 0.104 232);
+  --color-azure-400: oklch(0.745 0.138 232);
+  --color-azure-500: oklch(0.66 0.134 232);
+  --color-azure-600: oklch(0.575 0.117 232);
+  --color-azure-700: oklch(0.497 0.101 232);
+  --color-azure-800: oklch(0.425 0.086 232);
+  --color-azure-900: oklch(0.36 0.073 232);
+  --color-azure-950: oklch(0.255 0.052 232);
+
+  /* ── typography ──────────────────────────────────────────────────────────── */
+  --font-heading: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* Fluid type scale. Headings are set tight and optically corrected; body text
+     is never fluid below its comfortable reading size. */
+  --text-display: clamp(2.75rem, 1.6rem + 5.2vw, 5.5rem);
+  --text-display--line-height: 0.94;
+  --text-display--letter-spacing: -0.04em;
+  --text-h1: clamp(2.125rem, 1.4rem + 3.1vw, 3.5rem);
+  --text-h1--line-height: 1.04;
+  --text-h1--letter-spacing: -0.032em;
+  --text-h2: clamp(1.625rem, 1.2rem + 1.8vw, 2.5rem);
+  --text-h2--line-height: 1.12;
+  --text-h2--letter-spacing: -0.024em;
+  --text-h3: clamp(1.25rem, 1.05rem + 0.8vw, 1.75rem);
+  --text-h3--line-height: 1.2;
+  --text-h3--letter-spacing: -0.018em;
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 1;
+  --text-overline--letter-spacing: 0.14em;
+
+  /* ── radii ───────────────────────────────────────────────────────────────── */
+  --radius: 0.625rem;
+  --radius-xs: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-3xl: calc(var(--radius) + 18px);
+
+  /* ── motion ──────────────────────────────────────────────────────────────── */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --duration-instant: 90ms;
+  --duration-fast: 160ms;
+  --duration-normal: 240ms;
+  --duration-slow: 420ms;
+  --duration-deliberate: 720ms;
+
+  /* ── keyframes ───────────────────────────────────────────────────────────── */
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.6s var(--ease-out-quint) infinite;
+  --animate-pulse-glow: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-rise: rise var(--duration-slow) var(--ease-out-expo) both;
+  --animate-marquee: marquee 42s linear infinite;
+  --animate-aurora: aurora 18s ease-in-out infinite alternate;
+  --animate-tick: tick var(--duration-normal) var(--ease-spring);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -180% 0;
+  }
+  100% {
+    background-position: 180% 0;
+  }
+}
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes aurora {
+  0% {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(6%, 5%, 0) scale(1.18);
+    opacity: 0.85;
+  }
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px color-mix(in oklch, var(--brand) 20%, transparent);
+  }
+}
+@keyframes beam {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+@keyframes tick {
+  0% {
+    transform: translateY(45%);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   2. SEMANTIC LAYER — the only names a component is allowed to use.
+      Swapping a brand means editing §1 and this block, nothing else.
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* elevation stack — canvas sits *below* cards so cards read as lifted */
+  --canvas: var(--color-graphite-50);
+  --surface: var(--color-graphite-25);
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--color-graphite-100);
+  --surface-inverse: var(--color-graphite-900);
+
+  /* ink */
+  --text-primary: var(--color-graphite-900); /* 15.6:1 on surface */
+  --text-secondary: var(--color-graphite-700); /*  7.8:1 */
+  --text-tertiary: var(--color-graphite-600); /*  5.3:1 */
+  --text-inverse: var(--color-graphite-25);
+
+  /* hairlines — alpha so they compose over any surface in the stack */
+  --line-subtle: oklch(0.248 0.015 185 / 7%);
+  --line: oklch(0.248 0.015 185 / 12%);
+  --line-strong: oklch(0.248 0.015 185 / 20%);
+
+  /* brand */
+  --brand: var(--color-jade-700); /* white on this = 5.73:1 */
+  --brand-hover: var(--color-jade-800);
+  --brand-fg: #ffffff;
+  --brand-subtle: var(--color-jade-50);
+  --brand-subtle-fg: var(--color-jade-800);
+  --brand-line: var(--color-jade-200);
+  --brand-glow: oklch(0.66 0.142 163 / 22%);
+
+  --ion: var(--color-ion-700);
+  --ion-fg: #ffffff;
+  --ion-subtle: var(--color-ion-50);
+  --ion-subtle-fg: var(--color-ion-800);
+
+  /* status — each pairs with an icon + label in the UI; colour never alone */
+  --success: var(--color-jade-700);
+  --success-subtle: var(--color-jade-50);
+  --success-line: var(--color-jade-200);
+  --warning: var(--color-amber-700);
+  --warning-subtle: var(--color-amber-50);
+  --warning-line: var(--color-amber-200);
+  --danger: var(--color-crimson-600);
+  --danger-subtle: var(--color-crimson-50);
+  --danger-line: var(--color-crimson-200);
+  --info: var(--color-azure-700);
+  --info-subtle: var(--color-azure-50);
+  --info-line: var(--color-azure-200);
+
+  /* categorical series — fixed order, assigned in sequence, never cycled.
+     Validated (adjacent pairlist, surface #fbfdfc): worst CVD ΔE 11.3,
+     worst normal-vision ΔE 20.1, all 8 ≥ 3:1. */
+  --chart-1: #028058; /* jade    */
+  --chart-2: #3655d9; /* ion     */
+  --chart-3: #9e2d98; /* orchid  */
+  --chart-4: #b85902; /* copper  */
+  --chart-5: #02769f; /* azure   */
+  --chart-6: #806a01; /* amber   */
+  --chart-7: #039ba8; /* cyan    */
+  --chart-8: #be0d2c; /* crimson */
+  --chart-grid: oklch(0.248 0.015 185 / 9%);
+  --chart-axis: var(--color-graphite-400);
+
+  /* elevation — shadows are brand-tinted, never neutral black */
+  --shadow-e1: 0 1px 2px oklch(0.248 0.015 185 / 6%);
+  --shadow-e2:
+    0 1px 2px oklch(0.248 0.015 185 / 5%), 0 4px 10px -2px oklch(0.248 0.015 185 / 7%);
+  --shadow-e3:
+    0 2px 4px oklch(0.248 0.015 185 / 5%), 0 12px 28px -6px oklch(0.248 0.015 185 / 11%);
+  --shadow-e4:
+    0 4px 8px oklch(0.248 0.015 185 / 6%), 0 28px 56px -12px oklch(0.248 0.015 185 / 16%);
+
+  /* ── shadcn / Base UI compatibility aliases ──────────────────────────────── */
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-fg);
+  --secondary: var(--color-graphite-100);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--text-tertiary);
+  --accent: var(--brand-subtle);
+  --accent-foreground: var(--brand-subtle-fg);
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--brand);
+
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text-secondary);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-fg);
+  --sidebar-accent: var(--brand-subtle);
+  --sidebar-accent-foreground: var(--brand-subtle-fg);
+  --sidebar-border: var(--line-subtle);
+  --sidebar-ring: var(--brand);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* In dark, elevation runs the other way: higher = lighter. */
+  --canvas: var(--color-graphite-950);
+  --surface: var(--color-graphite-900);
+  --surface-raised: var(--color-graphite-800);
+  --surface-sunken: var(--color-graphite-975);
+  --surface-inverse: var(--color-graphite-50);
+
+  --text-primary: var(--color-graphite-100); /* 13.9:1 on surface */
+  --text-secondary: var(--color-graphite-400); /*  7.1:1 */
+  --text-tertiary: var(--color-graphite-500); /*  4.5:1 */
+  --text-inverse: var(--color-graphite-900);
+
+  --line-subtle: oklch(1 0 0 / 6%);
+  --line: oklch(1 0 0 / 11%);
+  --line-strong: oklch(1 0 0 / 18%);
+
+  /* The brand step flips: jade-400 on a dark surface, with near-black ink on it
+     (9.58:1) — the light-mode jade-700 would disappear here. */
+  --brand: var(--color-jade-400);
+  --brand-hover: var(--color-jade-300);
+  --brand-fg: var(--color-graphite-1000);
+  --brand-subtle: oklch(0.66 0.142 163 / 14%);
+  --brand-subtle-fg: var(--color-jade-300);
+  --brand-line: oklch(0.66 0.142 163 / 30%);
+  --brand-glow: oklch(0.745 0.138 163 / 30%);
+
+  --ion: var(--color-ion-400);
+  --ion-fg: var(--color-graphite-1000);
+  --ion-subtle: oklch(0.66 0.179 268 / 16%);
+  --ion-subtle-fg: var(--color-ion-300);
+
+  --success: var(--color-jade-300);
+  --success-subtle: oklch(0.66 0.142 163 / 14%);
+  --success-line: oklch(0.66 0.142 163 / 30%);
+  --warning: var(--color-amber-300);
+  --warning-subtle: oklch(0.745 0.152 95 / 14%);
+  --warning-line: oklch(0.745 0.152 95 / 30%);
+  --danger: var(--color-crimson-300);
+  --danger-subtle: oklch(0.66 0.2 22 / 16%);
+  --danger-line: oklch(0.66 0.2 22 / 32%);
+  --info: var(--color-azure-300);
+  --info-subtle: oklch(0.66 0.134 232 / 16%);
+  --info-line: oklch(0.66 0.134 232 / 32%);
+
+  /* Dark is *selected*, not an inversion: the same eight hues re-stepped for the
+     dark surface. Validated (adjacent, surface #192422): worst CVD ΔE 10.8,
+     worst normal-vision ΔE 19.4, all 8 ≥ 3:1. */
+  --chart-1: #04a372;
+  --chart-2: #5076fd;
+  --chart-3: #c050b9;
+  --chart-4: #c86516;
+  --chart-5: #0396ca;
+  --chart-6: #a28803;
+  --chart-7: #049ca9;
+  --chart-8: #e33f4a;
+  --chart-grid: oklch(1 0 0 / 8%);
+  --chart-axis: var(--color-graphite-600);
+
+  --shadow-e1: 0 1px 2px oklch(0 0 0 / 40%);
+  --shadow-e2: 0 1px 2px oklch(0 0 0 / 36%), 0 4px 10px -2px oklch(0 0 0 / 44%);
+  --shadow-e3: 0 2px 4px oklch(0 0 0 / 36%), 0 12px 28px -6px oklch(0 0 0 / 52%);
+  --shadow-e4: 0 4px 8px oklch(0 0 0 / 40%), 0 28px 56px -12px oklch(0 0 0 / 62%);
+
+  --secondary: var(--color-graphite-800);
+  --destructive-foreground: var(--color-graphite-1000);
+}
+
+/* -----------------------------------------------------------------------------
+   3. UTILITY MAPPING — expose the semantic layer as Tailwind utilities
+      (bg-surface, text-secondary, border-line, shadow-e3, …).
+   -------------------------------------------------------------------------- */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-inverse: var(--surface-inverse);
+
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-tertiary: var(--text-tertiary);
+  --color-ink-inverse: var(--text-inverse);
+
+  --color-line-subtle: var(--line-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-subtle-fg: var(--brand-subtle-fg);
+  --color-brand-line: var(--brand-line);
+
+  --color-ion: var(--ion);
+  --color-ion-fg: var(--ion-fg);
+  --color-ion-subtle: var(--ion-subtle);
+  --color-ion-subtle-fg: var(--ion-subtle-fg);
+
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-line: var(--success-line);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-line: var(--warning-line);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-line: var(--danger-line);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-line: var(--info-line);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+
+  /* shadcn aliases */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-e1: var(--shadow-e1);
+  --shadow-e2: var(--shadow-e2);
+  --shadow-e3: var(--shadow-e3);
+  --shadow-e4: var(--shadow-e4);
+}
+
+/* -----------------------------------------------------------------------------
+   4. BASE
+   -------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: var(--font-mono);
+    font-feature-settings: "zero";
+  }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--brand) 26%, transparent);
+    color: var(--text-primary);
+  }
+
+  /* One focus treatment for the whole app. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Numeric columns must align; standalone figures must not look mechanical. */
+  [data-tabular] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+    background-clip: content-box;
+  }
+
+  /* Scroll-reveal hides content until the section is scrolled into view. Print
+     never scrolls, so without this every below-the-fold band prints blank.
+     (Full-page screenshot tools hit the same problem for the same reason.) */
+  @media print {
+    [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   5. BRAND UTILITIES — the few effects that are genuinely part of the identity.
+   -------------------------------------------------------------------------- */
+@layer utilities {
+  /* Frosted panel. Falls back to an opaque surface where backdrop-filter is
+     unsupported, so text never lands on an unreadable background. */
+  .glass {
+    background-color: color-mix(in oklch, var(--surface) 78%, transparent);
+    border: 1px solid var(--line);
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass {
+      background-color: color-mix(in oklch, var(--surface) 62%, transparent);
+      backdrop-filter: blur(20px) saturate(1.6);
+    }
+  }
+
+  /* Hairline top-edge highlight — what makes a dark card look milled rather
+     than flat. Deliberately absent in light mode, where it reads as dirt. */
+  .edge-lit {
+    position: relative;
+  }
+  .dark .edge-lit::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(1 0 0 / 14%) 22%,
+      oklch(1 0 0 / 14%) 78%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(
+      104deg,
+      var(--text-primary) 0%,
+      var(--text-primary) 34%,
+      var(--brand) 78%,
+      var(--ion) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .glow-brand {
+    box-shadow: 0 0 0 1px var(--brand-line), 0 8px 32px -8px var(--brand-glow);
+  }
+
+  /* Ambient field behind hero sections. */
+  .aurora-field {
+    position: absolute;
+    inset: -30%;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 42% at 22% 28%, var(--brand-glow), transparent 68%),
+      radial-gradient(34% 38% at 78% 18%, color-mix(in oklch, var(--ion) 26%, transparent), transparent 68%),
+      radial-gradient(46% 40% at 58% 86%, color-mix(in oklch, var(--brand) 16%, transparent), transparent 70%);
+    filter: blur(46px);
+    animation: var(--animate-aurora);
+  }
+
+  /* Unmasked engineering grid used as the public shell's canvas texture. */
+  .cyber-grid {
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in oklch, var(--brand) 7%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklch, var(--brand) 7%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 40px 40px;
+  }
+
+  /* Engineering grid — the "platform" texture. */
+  .grid-field {
+    background-image:
+      linear-gradient(var(--line-subtle) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-subtle) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(72% 62% at 50% 30%, #000 20%, transparent 100%);
+  }
+
+  /* Film grain over the whole viewport. Generated in-document rather than
+     fetched, so it costs no request and cannot 404. */
+  .noise-field {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Soft colour bloom used behind hero and CTA sections. */
+  .bloom {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+    filter: blur(120px);
+  }
+
+  /* Travelling highlight around a card's border.
+     The usual gradient-border recipe: paint the gradient on the border box,
+     then mask out the padding box so only the ring survives. The sweep needs
+     `background-size` wider than the element — without it the position
+     animation has nothing to travel across and the beam sits still. */
+  .border-beam {
+    position: relative;
+  }
+  .border-beam::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    border: 2px solid transparent;
+    border-radius: inherit;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in oklch, var(--brand) 55%, transparent) 50%,
+        transparent 100%
+      )
+      border-box;
+    background-size: 200% 100%;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) padding-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#fff 0 0) padding-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    animation: beam 4s linear infinite;
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--surface-sunken) 0%,
+      color-mix(in oklch, var(--surface-sunken) 55%, var(--surface-raised)) 50%,
+      var(--surface-sunken) 100%
+    );
+    background-size: 220% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
