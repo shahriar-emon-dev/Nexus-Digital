@@ -4,6 +4,7 @@ import { Bolt, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { AccessDeniedNotice } from "@/components/admin/AccessDeniedNotice";
 import { CommandLogs } from "@/components/admin/CommandLogs";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 
@@ -45,6 +46,7 @@ const summary = [
 export default function AdminDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-8 p-5 lg:p-10">
+      <AccessDeniedNotice />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-heading text-[2.5rem] leading-[1.2] font-bold tracking-tight text-ink">
@@ -76,13 +78,14 @@ export default function AdminDashboardPage() {
             <h3 className="mb-6 font-heading text-xl font-semibold text-ink">Delivery Health</h3>
             <dl className="flex flex-col gap-4">
               {health.map((row) => (
-                <div key={row.label} className="flex flex-col gap-2">
-                  <div className="flex justify-between text-xs">
+                <div
+                  key={row.label}
+                  className="flex flex-wrap justify-between gap-x-3 text-xs"
+                >
                     <dt className="text-ink-tertiary">{row.label}</dt>
                     <dd data-tabular className={cn("font-bold", row.text)}>
                       {row.value}
                     </dd>
-                  </div>
                   {/* Decorative — the figure above carries the value. */}
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-line" aria-hidden>
                     <div
