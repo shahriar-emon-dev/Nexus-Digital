@@ -209,6 +209,11 @@
     opacity: 0.85;
   }
 }
+@keyframes beam-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes pulse-glow {
   0%,
   100% {
@@ -297,6 +302,14 @@
   --chart-2: #3655d9; /* ion     */
   --chart-3: #9e2d98; /* orchid  */
   --chart-4: #b85902; /* copper  */
+  /* Chip pairs. The chart hues are tuned for data viz against the canvas; used
+     as text on a tint of themselves they land at 3.4–4.4:1, under the 4.5
+     needed for the small bold labels these chips use. These are the same hues
+     pushed far enough to clear AA without touching the viz palette. */
+  --chart-3-subtle: oklch(0.94 0.03 328);
+  --chart-3-subtle-fg: oklch(0.38 0.16 328);
+  --chart-4-subtle: oklch(0.94 0.035 62);
+  --chart-4-subtle-fg: oklch(0.40 0.13 62);
   --chart-5: #02769f; /* azure   */
   --chart-6: #806a01; /* amber   */
   --chart-7: #039ba8; /* cyan    */
@@ -398,6 +411,10 @@
   --chart-2: #5076fd;
   --chart-3: #c050b9;
   --chart-4: #c86516;
+  --chart-3-subtle: oklch(0.62 0.19 328 / 16%);
+  --chart-3-subtle-fg: oklch(0.84 0.10 328);
+  --chart-4-subtle: oklch(0.66 0.15 62 / 16%);
+  --chart-4-subtle-fg: oklch(0.86 0.09 62);
   --chart-5: #0396ca;
   --chart-6: #a28803;
   --chart-7: #049ca9;
@@ -462,7 +479,11 @@
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
+  --color-chart-3-subtle: var(--chart-3-subtle);
+  --color-chart-3-subtle-fg: var(--chart-3-subtle-fg);
   --color-chart-4: var(--chart-4);
+  --color-chart-4-subtle: var(--chart-4-subtle);
+  --color-chart-4-subtle-fg: var(--chart-4-subtle-fg);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
   --color-chart-7: var(--chart-7);
@@ -751,6 +772,28 @@
       linear-gradient(#fff 0 0);
     mask-composite: exclude;
     animation: beam 4s linear infinite;
+  }
+
+  /* Slow rotating conic glow behind a translucent panel — a companion to
+     `.border-beam`, which sweeps along the edge instead. Sits behind the card's
+     own background, so it only reads on a glass surface. */
+  .beam-rotate {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .beam-rotate::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    z-index: -1;
+    width: 200%;
+    height: 200%;
+    pointer-events: none;
+    opacity: 0.12;
+    background: conic-gradient(from 0deg, transparent 70%, var(--brand) 100%);
+    animation: beam-rotate 6s linear infinite;
   }
 
   .shimmer {

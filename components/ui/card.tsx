@@ -18,8 +18,16 @@ const cardVariants = cva(
         true: "cursor-pointer hover:-translate-y-0.5 hover:border-brand-line hover:shadow-e3",
         false: "",
       },
+      /**
+       * Hover lift without the pointer cursor — for panels that respond to the
+       * cursor but are not themselves a single click target.
+       */
+      lift: {
+        true: "hover:-translate-y-0.5 hover:border-brand-line hover:shadow-[0_0_30px_var(--brand-glow)]",
+        false: "",
+      },
     },
-    defaultVariants: { variant: "default", interactive: false },
+    defaultVariants: { variant: "default", interactive: false, lift: false },
   }
 );
 
@@ -27,12 +35,13 @@ function Card({
   className,
   variant,
   interactive,
+  lift,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
-      className={cn("edge-lit", cardVariants({ variant, interactive, className }))}
+      className={cn("edge-lit", cardVariants({ variant, interactive, lift, className }))}
       {...props}
     />
   );

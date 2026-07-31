@@ -35,7 +35,10 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "relative z-10 inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap",
         "text-sm font-medium text-ink-tertiary outline-none select-none",
         "transition-colors duration-(--duration-fast) ease-(--ease-out-quint)",
-        "hover:text-ink-secondary data-selected:text-ink",
+        // Base UI marks the selected tab with `data-active`, not
+        // `data-selected` — keying off the latter left the active tab styled
+        // exactly like the rest.
+        "hover:text-ink-secondary data-active:text-ink",
         "focus-visible:ring-2 focus-visible:ring-brand/50",
         "disabled:pointer-events-none disabled:opacity-45",
         "[&_svg]:size-4",
@@ -43,7 +46,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "in-data-[variant=pill]:rounded-lg in-data-[variant=pill]:px-3.5 in-data-[variant=pill]:py-1.5",
         // underline
         "in-data-[variant=underline]:-mb-px in-data-[variant=underline]:border-b-2 in-data-[variant=underline]:border-transparent in-data-[variant=underline]:pb-3",
-        "in-data-[variant=underline]:data-selected:border-brand",
+        "in-data-[variant=underline]:data-active:border-brand in-data-[variant=underline]:data-active:text-brand",
         className
       )}
       {...props}

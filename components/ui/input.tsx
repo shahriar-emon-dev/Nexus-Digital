@@ -13,9 +13,18 @@ const fieldSurface = [
   "aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/20",
 ];
 
-function Input({ className, ...props }: InputPrimitive.Props) {
+/**
+ * Forwards its ref: without this, callers that manage focus — the one-time-code
+ * fields, for instance — get `null` back and every `.focus()` silently does
+ * nothing, which looks like the component simply not working.
+ */
+const Input = React.forwardRef<HTMLInputElement, InputPrimitive.Props>(function Input(
+  { className, ...props },
+  ref
+) {
   return (
     <InputPrimitive
+      ref={ref}
       data-slot="input"
       className={cn(
         fieldSurface,
@@ -26,17 +35,20 @@ function Input({ className, ...props }: InputPrimitive.Props) {
       {...props}
     />
   );
-}
+});
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
-  return (
-    <textarea
-      data-slot="textarea"
-      className={cn(fieldSurface, "min-h-24 resize-y px-3 py-2.5 text-sm", className)}
-      {...props}
-    />
-  );
-}
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(
+  function Textarea({ className, ...props }, ref) {
+    return (
+      <textarea
+        ref={ref}
+        data-slot="textarea"
+        className={cn(fieldSurface, "min-h-24 resize-y px-3 py-2.5 text-sm", className)}
+        {...props}
+      />
+    );
+  }
+);
 
 /** Input with a leading icon / trailing affix slot. */
 function InputGroup({
