@@ -15,6 +15,7 @@ export function EmptyState({
   secondaryAction,
   className,
   compact = false,
+  titleAs: Title = "h3",
 }: {
   icon?: LucideIcon;
   title: string;
@@ -23,6 +24,12 @@ export function EmptyState({
   secondaryAction?: React.ReactNode;
   className?: string;
   compact?: boolean;
+  /**
+   * When the empty state IS the page — a scaffold, a 404, an error boundary —
+   * its title is the document's only heading and must be an `h1`. Inside a page
+   * that already has one, the default `h3` keeps the outline intact.
+   */
+  titleAs?: "h1" | "h2" | "h3";
 }) {
   return (
     <div
@@ -37,7 +44,7 @@ export function EmptyState({
           <Icon className="size-5" aria-hidden />
         </span>
       )}
-      <h3 className="font-heading text-base font-semibold text-ink">{title}</h3>
+      <Title className="font-heading text-base font-semibold text-ink">{title}</Title>
       {description && (
         <p className="max-w-sm text-sm leading-relaxed text-ink-tertiary">{description}</p>
       )}
