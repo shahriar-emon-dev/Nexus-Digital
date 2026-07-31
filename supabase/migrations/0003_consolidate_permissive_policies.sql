@@ -20,7 +20,9 @@
 -- scoped to the write actions only.
 --
 -- No behavioural change. Verified by supabase/verify/auth_security_check.sql,
--- which must still report 18/18 after this runs.
+-- which must still report 22/22 after this runs. Four of those checks exist
+-- specifically for this migration: merging policies with OR is how access gets
+-- widened by accident, so cross-row writes are asserted against disk.
 --
 -- SAFE TO RE-RUN. Requires 0001_authentication.sql.
 -- =============================================================================

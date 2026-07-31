@@ -1,4 +1,5 @@
 import { StaffSidebar } from "@/components/layout/StaffSidebar";
+import { getSidebarUser } from "@/lib/supabase/sidebar-user";
 import { FloatingTimer } from "@/components/staff/FloatingTimer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -8,11 +9,13 @@ const statusLinks = [
   { label: "Internal Wiki", href: "/staff/support" },
 ];
 
-export default function StaffLayout({ children }: { children: React.ReactNode }) {
+export default async function StaffLayout({ children }: { children: React.ReactNode }) {
+  const user = await getSidebarUser("Staff");
+
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-canvas">
-        <StaffSidebar />
+        <StaffSidebar user={user} />
 
         {/* pt-14 clears the fixed mobile nav bar the sidebar renders below `lg`. */}
         <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">

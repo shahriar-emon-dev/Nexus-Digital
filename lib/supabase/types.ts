@@ -21,36 +21,57 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
+          avatar_url: string | null;
+          bio: string | null;
           created_at: string;
           email: string;
           full_name: string;
           id: string;
           is_active: boolean;
+          job_title: string | null;
           last_seen_at: string | null;
+          locale: string;
+          organization_id: string | null;
+          phone: string | null;
           portal: Database["public"]["Enums"]["portal"];
           role_id: string | null;
+          timezone: string;
           updated_at: string;
         };
         Insert: {
+          avatar_url?: string | null;
+          bio?: string | null;
           created_at?: string;
           email: string;
           full_name?: string;
           id: string;
           is_active?: boolean;
+          job_title?: string | null;
           last_seen_at?: string | null;
+          locale?: string;
+          organization_id?: string | null;
+          phone?: string | null;
           portal?: Database["public"]["Enums"]["portal"];
           role_id?: string | null;
+          timezone?: string;
           updated_at?: string;
         };
         Update: {
+          avatar_url?: string | null;
+          bio?: string | null;
           created_at?: string;
           email?: string;
           full_name?: string;
           id?: string;
           is_active?: boolean;
+          job_title?: string | null;
           last_seen_at?: string | null;
+          locale?: string;
+          organization_id?: string | null;
+          phone?: string | null;
           portal?: Database["public"]["Enums"]["portal"];
           role_id?: string | null;
+          timezone?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -62,6 +83,36 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      organizations: {
+        Row: {
+          created_at: string;
+          id: string;
+          industry: string | null;
+          name: string;
+          slug: string;
+          tier: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          industry?: string | null;
+          name: string;
+          slug: string;
+          tier?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          industry?: string | null;
+          name?: string;
+          slug?: string;
+          tier?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       roles: {
         Row: {
@@ -98,5 +149,6 @@ export type Database = {
 };
 
 export type Portal = Database["public"]["Enums"]["portal"];
+export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Role = Database["public"]["Tables"]["roles"]["Row"];
