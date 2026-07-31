@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import { RouteScaffold } from "@/components/shared/RouteScaffold";
 import {
   Gauge,
   Headset,
@@ -17,10 +20,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { RouteScaffold } from "@/components/shared/RouteScaffold";
 import { RoiForecaster } from "@/components/services/RoiForecaster";
 import { ServiceSectionNav } from "@/components/services/ServiceSectionNav";
 import { StickyCtaBar } from "@/components/services/StickyCtaBar";
+import { services as catalogue } from "@/lib/services";
 import { services } from "./service-data";
 
 const roadmapIcons = {
@@ -56,10 +59,13 @@ export function generateMetadata({ params }: Props): Metadata {
 export default function ServiceDetailPage({ params }: Props) {
   const service = services[params.slug];
 
-  // Slugs without written content keep the scaffold, so every mega-menu link
-  // still resolves instead of 404-ing.
+  // Existence is decided by the catalogue; `service-data` only holds the
+  // long-form copy. A catalogued service without copy keeps the scaffold —
+  // 404-ing it would break the mega-menu links that point at it.
+  const catalogued = catalogue.some((c) => c.slug === params.slug);
+  if (!catalogued && !service) notFound();
   if (!service) {
-    return <RouteScaffold title="Services detail" route={`/services/${params.slug}`} />;
+    return <RouteScaffold title="Service" route={`/services/${params.slug}`} />;
   }
 
   return (

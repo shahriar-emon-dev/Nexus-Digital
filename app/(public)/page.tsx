@@ -232,7 +232,10 @@ export default function HomePage() {
               variant="glass"
               className="relative overflow-hidden rounded-[2.5rem] p-12 md:p-20"
             >
-              <dl className="relative z-10 grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
+              {/* A plain grid, not a <dl>: these are stat tiles, not term/definition
+                  pairs — CountUp emits no <dt>/<dd>, so a <dl> here is invalid
+                  markup that screen readers announce as an empty list. */}
+              <div className="relative z-10 grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
                 {stats.map((stat) => (
                   <CountUp
                     key={stat.label}
@@ -246,7 +249,7 @@ export default function HomePage() {
                     className="lg:items-start lg:text-left"
                   />
                 ))}
-              </dl>
+              </div>
 
               <ul className="mt-20 flex flex-wrap justify-center gap-12 opacity-60 grayscale transition-[filter,opacity] duration-700 hover:opacity-100 hover:grayscale-0">
                 {stack.map(({ icon: Icon, name }) => (

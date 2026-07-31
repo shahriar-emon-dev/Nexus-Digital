@@ -43,17 +43,17 @@ type Service = {
 };
 
 const accents: Record<Category, { chip: string; icon: string; badge: string }> = {
-  Core: { chip: "bg-brand/10", icon: "text-brand", badge: "border-brand/30 bg-brand/20 text-brand" },
-  Specialized: { chip: "bg-ion/10", icon: "text-ion", badge: "border-ion/30 bg-ion/20 text-ion" },
+  Core: { chip: "bg-brand/10", icon: "text-brand", badge: "border-brand/30 bg-brand-subtle text-brand-subtle-fg" },
+  Specialized: { chip: "bg-ion/10", icon: "text-ion", badge: "border-ion/30 bg-ion-subtle text-ion-subtle-fg" },
   Emerging: {
     chip: "bg-chart-3/10",
     icon: "text-chart-3",
-    badge: "border-chart-3/30 bg-chart-3/20 text-chart-3",
+    badge: "border-chart-3/30 bg-chart-3-subtle text-chart-3-subtle-fg",
   },
   Strategy: {
     chip: "bg-chart-4/10",
     icon: "text-chart-4",
-    badge: "border-chart-4/30 bg-chart-4/20 text-chart-4",
+    badge: "border-chart-4/30 bg-chart-4-subtle text-chart-4-subtle-fg",
   },
 };
 

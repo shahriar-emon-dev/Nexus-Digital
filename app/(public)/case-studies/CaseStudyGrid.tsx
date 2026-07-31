@@ -21,7 +21,11 @@ const spans: Record<Layout, string> = {
   split: "md:col-span-6",
 };
 
-const toneText = { brand: "text-brand", ion: "text-ion" } as const;
+const toneText = {
+  brand: "text-brand",
+  ion: "text-ion",
+  orchid: "text-chart-3",
+} as const;
 
 function Metrics({ metrics, size = "md" }: { metrics: Metric[]; size?: "md" | "sm" }) {
   return (

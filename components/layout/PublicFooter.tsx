@@ -29,11 +29,13 @@ const columns = [
   },
 ];
 
+/* TODO: swap for the agency's real profile URLs. External so they open in a
+   new tab with `rel="noreferrer"`, rather than the `href="#"` dead ends. */
 const socials = [
-  { label: "LinkedIn", href: "#" },
-  { label: "X / Twitter", href: "#" },
-  { label: "Behance", href: "#" },
-  { label: "GitHub", href: "#" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/nexus-digital-agency" },
+  { label: "X / Twitter", href: "https://x.com/nexusagency" },
+  { label: "Behance", href: "https://www.behance.net/nexusagency" },
+  { label: "GitHub", href: "https://github.com/nexus-agency" },
 ];
 
 export function PublicFooter() {
@@ -94,9 +96,12 @@ export function PublicFooter() {
               <a
                 key={social.label}
                 href={social.href}
-                className="transition-colors hover:text-brand focus-visible:text-brand focus-visible:outline-none"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded-sm transition-colors hover:text-brand focus-visible:text-brand focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
               >
                 {social.label}
+                <span className="sr-only"> (opens in a new tab)</span>
               </a>
             ))}
           </div>

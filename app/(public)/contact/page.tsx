@@ -28,10 +28,15 @@ const channels = [
   },
 ];
 
+/* TODO: swap for the agency's real profile URLs. */
 const socials = [
-  { icon: Twitter, label: "Nexus on X" },
-  { icon: Linkedin, label: "Nexus on LinkedIn" },
-  { icon: Github, label: "Nexus on GitHub" },
+  { icon: Twitter, label: "Nexus on X", href: "https://x.com/nexusagency" },
+  {
+    icon: Linkedin,
+    label: "Nexus on LinkedIn",
+    href: "https://www.linkedin.com/company/nexus-digital-agency",
+  },
+  { icon: Github, label: "Nexus on GitHub", href: "https://github.com/nexus-agency" },
 ];
 
 export default function ContactPage() {
@@ -95,12 +100,14 @@ export default function ContactPage() {
                     Follow neural feeds
                   </p>
                   <div className="flex gap-4">
-                    {socials.map(({ icon: Icon, label }) => (
+                    {socials.map(({ icon: Icon, label, href }) => (
                       <a
                         key={label}
-                        href="#"
-                        aria-label={label}
-                        className="grid size-10 place-items-center rounded-full border border-line text-ink-secondary transition-colors hover:bg-surface-sunken hover:text-ink"
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        aria-label={`${label} (opens in a new tab)`}
+                        className="grid size-10 place-items-center rounded-full border border-line text-ink-secondary transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
                       >
                         <Icon className="size-5" aria-hidden />
                       </a>

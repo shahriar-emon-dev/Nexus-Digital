@@ -12,6 +12,7 @@ const tones = {
 
 const sizes = {
   default: { figure: "text-h3", label: "text-[0.8125rem] text-ink-tertiary" },
+  stat: { figure: "text-[2.625rem] leading-none", label: "text-[0.8125rem] text-ink-tertiary" },
   display: {
     figure: "text-[3rem] lg:text-[4.5rem] leading-none",
     label:
@@ -64,6 +65,9 @@ export function CountUp({
           s.figure,
           tones[tone]
         )}
+        // `aria-label` is prohibited on a <p>; `role="img"` gives it an element
+        // type that accepts one, so the figure is announced as a single unit.
+        role="img"
         aria-label={`${display} ${label}`}
       >
         <span aria-hidden className="flex items-baseline">

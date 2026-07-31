@@ -276,17 +276,23 @@ export default function ServicesPage() {
                     </h4>
                     <dl className="flex flex-col gap-6">
                       {impactMetrics.map((metric) => (
-                        <div key={metric.label}>
-                          <div className="mb-2 flex justify-between">
-                            <dt className="text-xs font-semibold text-ink-secondary">
-                              {metric.label}
-                            </dt>
-                            <dd data-tabular className={cn("text-xs font-semibold", metric.text)}>
-                              {metric.value}
-                            </dd>
-                          </div>
+                        // dt/dd must be direct children of the single wrapper
+                        // <div> that a <dl> permits.
+                        <div
+                          key={metric.label}
+                          className="flex flex-wrap justify-between gap-x-3"
+                        >
+                          <dt className="text-xs font-semibold text-ink-secondary">
+                            {metric.label}
+                          </dt>
+                          <dd data-tabular className={cn("text-xs font-semibold", metric.text)}>
+                            {metric.value}
+                          </dd>
                           {/* Decorative — the figure above carries the value. */}
-                          <div className="h-1 overflow-hidden rounded-full bg-line" aria-hidden>
+                          <div
+                            className="mt-2 h-1 w-full overflow-hidden rounded-full bg-line"
+                            aria-hidden
+                          >
                             <div
                               className={cn("h-full rounded-full", metric.bar)}
                               style={{ width: `${metric.fill}%` }}
