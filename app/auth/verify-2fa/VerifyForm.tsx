@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -9,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/field";
+import { verifyTotp } from "@/lib/supabase/auth-actions";
 
 const LENGTH = 6;
 const RESEND_SECONDS = 30;
@@ -27,6 +29,9 @@ type Status = "idle" | "verifying" | "error";
 export function VerifyForm({ destination }: { destination: string }) {
   const [digits, setDigits] = React.useState<string[]>(Array(LENGTH).fill(""));
   const [status, setStatus] = React.useState<Status>("idle");
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const router = useRouter();
+  const next = useSearchParams().get("next");
   const [secondsLeft, setSecondsLeft] = React.useState(RESEND_SECONDS);
   const [useBackup, setUseBackup] = React.useState(false);
   const [backup, setBackup] = React.useState("");
@@ -84,10 +89,25 @@ export function VerifyForm({ destination }: { destination: string }) {
     e.preventDefault();
     if (!complete) return;
     setStatus("verifying");
-    // TODO: verify against the TOTP secret server-side. Never compare codes in
-    // the browser, and rate-limit attempts per session.
-    await new Promise((r) => setTimeout(r, 900));
-    setStatus("error");
+    setFormError(null);
+
+    // Verified server-side against the enrolled TOTP factor. A code must never
+    // be compared in the browser — the comparison and the secret both have to
+    // stay on the server.
+    const payload = new FormData();
+    payload.set("code", digits.join(""));
+    if (next) payload.set("next", next);
+
+    const result = await verifyTotp(payload);
+
+    if ("error" in result) {
+      setStatus("error");
+      setFormError(result.error);
+      return;
+    }
+
+    router.push(result.redirectTo);
+    router.refresh();
   }
 
   return (
@@ -157,15 +177,10 @@ export function VerifyForm({ destination }: { destination: string }) {
         </div>
       )}
 
-      {status === "error" && (
-        <Alert tone="warning">
-          <AlertTitle>Verification is not connected</AlertTitle>
-          <AlertDescription>
-            {/* TODO: POST to the verify endpoint. The code must be checked
-                server-side against the stored secret, with attempt limiting. */}
-            No authentication backend is wired up yet, so this code could not be
-            checked and you have not been signed in.
-          </AlertDescription>
+      {status === "error" && formError && (
+        <Alert tone="danger" role="alert">
+          <AlertTitle>Could not verify that code</AlertTitle>
+          <AlertDescription>{formError}</AlertDescription>
         </Alert>
       )}
 

@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { signUp } from "@/lib/supabase/auth-actions";
 import { Label } from "@/components/ui/field";
 import {
   Select,
@@ -39,6 +41,7 @@ export function RegisterForm() {
   });
   const [errors, setErrors] = React.useState<Errors>({});
   const [status, setStatus] = React.useState<Status>("idle");
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   const clear = (key: Field) => setErrors((p) => ({ ...p, [key]: undefined }));
 
@@ -64,8 +67,26 @@ export function RegisterForm() {
     }
 
     setStatus("submitting");
-    // TODO: POST to a real registration endpoint / NextAuth provider.
-    await new Promise((r) => setTimeout(r, 1400));
+    setFormError(null);
+
+    // company / industry / phone are collected here but not yet persisted —
+    // those columns arrive with the User Profiles migration (Feature 2). Only
+    // the identity fields are sent, so nothing is silently dropped on a column
+    // that does not exist.
+    const payload = new FormData();
+    payload.set("email", values.email);
+    payload.set("password", values.password);
+    payload.set("fullName", values.fullName);
+
+    const result = await signUp(payload);
+
+    if ("error" in result) {
+      setStatus("idle");
+      setFormError(result.error);
+      document.getElementById("email")?.focus();
+      return;
+    }
+
     setStatus("done");
   };
 
@@ -73,6 +94,12 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+      {formError && (
+        <Alert tone="danger" role="alert">
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Field id="fullName" label="Full Name" error={errors.fullName}>
           <Input

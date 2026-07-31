@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Info, ShieldCheck } from "lucide-react";
 
@@ -51,7 +52,9 @@ export default function LoginPage() {
             <p className="text-ink-tertiary">Secure access for the digital vanguard.</p>
           </div>
 
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
 
           {/* /auth/register had nothing linking to it anywhere in the app —
               the only way in was typing the URL. */}

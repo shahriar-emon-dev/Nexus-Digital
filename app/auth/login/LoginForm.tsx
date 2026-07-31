@@ -2,19 +2,28 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, AtSign, CheckCircle2, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { signIn } from "@/lib/supabase/auth-actions";
 
 type Errors = Partial<Record<"email" | "password", string>>;
 type Status = "idle" | "verifying" | "granted";
 
 export function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const next = params.get("next");
+  const [formError, setFormError] = React.useState<string | null>(
+    params.get("error") === "account-disabled"
+      ? "This account has been deactivated. Contact an administrator."
+      : null
+  );
   const [values, setValues] = React.useState({ email: "", password: "" });
   const [errors, setErrors] = React.useState<Errors>({});
   const [status, setStatus] = React.useState<Status>("idle");
@@ -35,17 +44,39 @@ export function LoginForm() {
     }
 
     setStatus("verifying");
-    // TODO: hand off to NextAuth `signIn`. Nothing is authenticated today —
-    // this only advances the flow so the second factor is reachable.
-    await new Promise((r) => setTimeout(r, 1200));
+    setFormError(null);
+
+    // The credential is checked on the server. The previous implementation
+    // resolved a timer and redirected unconditionally, so any input signed in.
+    const payload = new FormData();
+    payload.set("email", values.email);
+    payload.set("password", values.password);
+    if (next) payload.set("next", next);
+
+    const result = await signIn(payload);
+
+    if ("error" in result) {
+      setStatus("idle");
+      setFormError(result.error);
+      document.getElementById("email")?.focus();
+      return;
+    }
+
     setStatus("granted");
-    router.push("/auth/verify-2fa");
+    router.push(result.redirectTo);
+    router.refresh();
   };
 
   const busy = status !== "idle";
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+      {formError && (
+        <Alert tone="danger" role="alert">
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Professional Email</Label>
         <div className="relative">

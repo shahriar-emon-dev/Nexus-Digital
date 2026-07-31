@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Fingerprint, ShieldCheck } from "lucide-react";
 
 import { AuthShell, BrandMark } from "@/components/auth/AuthShell";
@@ -62,7 +63,9 @@ export default function VerifyTwoFactorPage() {
             </p>
           </div>
 
-          <VerifyForm destination="Authenticator app · Pixel 8" />
+          <Suspense fallback={null}>
+            <VerifyForm destination="Authenticator app" />
+          </Suspense>
         </Card>
       </div>
     </AuthShell>

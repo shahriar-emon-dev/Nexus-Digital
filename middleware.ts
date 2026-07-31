@@ -2,41 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { roleCanAccessRoute } from "@/lib/access-control";
+import { updateSession } from "@/lib/supabase/middleware";
+import type { Portal } from "@/lib/supabase/types";
 
 /**
- * Role gating for the three portals.
+ * Session refresh and role gating for the three portals.
  *
- * There is no auth provider wired yet (`lib/auth.ts` has no providers and there
- * is no database), so there is no session to read. Rather than leave this a
- * no-op with three empty `if` blocks, the enforcement is written for real and
- * driven by a single session claim; only the *source* of that claim is stubbed.
- *
- * When NextAuth lands, replace `readSession` with `getToken({ req })` and
- * change nothing else — the portal gate and the per-module gate below are the
- * real rules, and they already read the same matrix the Access Control console
- * edits.
+ * The session is now real: `updateSession` revalidates the Supabase access
+ * token against the auth server and rotates the cookies, and the portal and
+ * role are read from `public.profiles` rather than from a client-settable
+ * cookie.
  */
-
-type Portal = "ADMIN" | "STAFF" | "CLIENT";
-
-type Session = { portal: Portal; roleId: string } | null;
-
-/**
- * Enforcement is opt-in until auth exists. With no provider there is no way to
- * obtain a session, so defaulting this on would lock every portal behind a
- * login that cannot succeed.
- */
-const AUTH_ENFORCED = process.env.AUTH_ENFORCED === "true";
-
-/**
- * Dev cookies stand in for the session claim so the gate is exercisable before
- * auth is wired. `getToken` replaces this wholesale.
- */
-function readSession(request: NextRequest): Session {
-  const portal = request.cookies.get("nexus-portal")?.value as Portal | undefined;
-  if (!portal || !(portal in homeFor)) return null;
-  return { portal, roleId: request.cookies.get("nexus-role")?.value ?? "global-admin" };
-}
 
 const homeFor: Record<Portal, string> = {
   ADMIN: "/admin",
@@ -53,39 +29,60 @@ const portalFor = (pathname: string): Portal | null =>
         ? "CLIENT"
         : null;
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Always run the refresh, even on /auth, so a session that expires while the
+  // user sits on the sign-in page is cleaned up rather than left stale.
+  const { response, user } = await updateSession(request);
+
   const required = portalFor(pathname);
-  if (!required) return NextResponse.next();
+  if (!required) {
+    // Already signed in and heading for the sign-in page? Send them to their
+    // own portal instead of showing a form they do not need.
+    if (user && user.isActive && pathname === "/auth/login") {
+      return NextResponse.redirect(new URL(homeFor[user.portal], request.url));
+    }
+    return response;
+  }
 
-  const session = readSession(request);
-
-  // No session. Send to sign-in, remembering the destination so login can
-  // return them there rather than dumping them on a generic home.
-  if (!session) {
-    if (!AUTH_ENFORCED) return NextResponse.next();
+  // Not signed in. Preserve the destination so sign-in can return them there.
+  if (!user) {
     const url = new URL("/auth/login", request.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
+  // Deactivated accounts keep a valid token until it expires; the profile flag
+  // is what actually revokes access.
+  if (!user.isActive) {
+    const url = new URL("/auth/login", request.url);
+    url.searchParams.set("error", "account-disabled");
+    return NextResponse.redirect(url);
+  }
+
   // Signed in but on the wrong portal — send them to their own. Bouncing an
   // already-authenticated user back to the sign-in form is a navigation loop.
-  if (session.portal !== required) {
-    return NextResponse.redirect(new URL(homeFor[session.portal], request.url));
+  if (user.portal !== required) {
+    return NextResponse.redirect(new URL(homeFor[user.portal], request.url));
   }
 
   // Right portal, but the role's grant on the module governing this route is
   // below the minimum the route requires.
-  if (required === "ADMIN" && !roleCanAccessRoute(session.roleId, pathname)) {
+  if (required === "ADMIN" && user.roleId && !roleCanAccessRoute(user.roleId, pathname)) {
     const url = new URL("/admin", request.url);
     url.searchParams.set("denied", pathname);
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/staff/:path*", "/client/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/staff/:path*",
+    "/client/:path*",
+    "/auth/:path*",
+  ],
 };
