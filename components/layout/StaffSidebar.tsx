@@ -4,12 +4,16 @@ import * as React from "react";
 import {
   CalendarDays,
   Cog,
+  LifeBuoy,
   LayoutDashboard,
   Monitor,
   Plus,
+  Settings,
   SquareKanban,
   Timer,
 } from "lucide-react";
+
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -80,10 +84,31 @@ export function StaffSidebar({ user = defaultUser }: { user?: SidebarUser }) {
         </div>
       }
       footer={
-        <Button className="w-full rounded-xl">
-          <Plus />
-          New Project
-        </Button>
+        <div className="flex flex-col gap-1">
+          <Button className="w-full rounded-xl" render={<Link href="/staff/projects" />}>
+            <Plus />
+            New Project
+          </Button>
+          {/* Both present in the design's rail and missing from this one. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            render={<Link href="/staff/settings" />}
+          >
+            <Settings />
+            Settings
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            render={<Link href="/staff/support" />}
+          >
+            <LifeBuoy />
+            Support
+          </Button>
+        </div>
       }
     />
   );

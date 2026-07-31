@@ -3,9 +3,9 @@ import { FloatingTimer } from "@/components/staff/FloatingTimer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const statusLinks = [
-  { label: "System Status: Operational", href: "#" },
-  { label: "API Docs", href: "#" },
-  { label: "Internal Wiki", href: "#" },
+  { label: "System Status: Operational", href: "/client/status" },
+  { label: "API Docs", href: "/staff/support" },
+  { label: "Internal Wiki", href: "/staff/support" },
 ];
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
