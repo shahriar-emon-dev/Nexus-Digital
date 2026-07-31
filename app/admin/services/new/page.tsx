@@ -1,7 +1,21 @@
-import { RouteScaffold } from "@/components/shared/RouteScaffold";
+import type { Metadata } from "next";
 
-export const metadata = { title: "New Service" };
+import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
+import { CreateServiceWizard } from "./CreateServiceWizard";
 
-export default function AdminServicesNewPage() {
-  return <RouteScaffold title="New Service" route="/admin/services/new" />;
+export const metadata: Metadata = { title: "Create service" };
+
+export default function AdminCreateServicePage() {
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-10 lg:px-10">
+      <Breadcrumbs
+        items={[
+          { label: "Command Center", href: "/admin" },
+          { label: "Services", href: "/admin/services" },
+          { label: "New" },
+        ]}
+      />
+      <CreateServiceWizard />
+    </div>
+  );
 }

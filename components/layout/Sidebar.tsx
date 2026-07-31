@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft, LogOut, Menu, type LucideIcon } from "lucide-react";
+import { ChevronDown, ChevronsLeft, LogOut, Menu, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage, initials } from "@/components/ui/avatar";
@@ -23,6 +23,11 @@ export type NavItem = {
   alert?: boolean;
   /** Match child routes too. Defaults to true for everything but the section root. */
   exact?: boolean;
+  /**
+   * Sub-items, rendered as a disclosure group. Lets a design contribute nav
+   * items without lengthening the top level — the parent still navigates.
+   */
+  children?: NavItem[];
 };
 
 export type NavSection = { label?: string; items: NavItem[] };
@@ -98,22 +103,7 @@ export function Sidebar({
         aria-label="Main"
         className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-4 scrollbar-none"
       >
-        {sections.map((section, i) => (
-          <div key={section.label ?? i} className={cn(i > 0 && "mt-6")}>
-            {section.label && !collapsed && (
-              <p className="px-2.5 pb-2 text-overline font-semibold tracking-(--text-overline--letter-spacing) text-ink-tertiary uppercase">
-                {section.label}
-              </p>
-            )}
-            <ul className="flex flex-col gap-0.5">
-              {section.items.map((item) => (
-                <li key={item.href}>
-                  <NavLink item={item} pathname={pathname} collapsed={collapsed} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        <NavSections sections={sections} pathname={pathname} collapsed={collapsed} />
       </nav>
 
       <div className="shrink-0 border-t border-line-subtle p-2.5">
@@ -134,7 +124,12 @@ export function Sidebar({
                 <p className="truncate text-[0.8125rem] font-medium text-ink">{user.name}</p>
                 <p className="truncate text-[0.6875rem] text-ink-tertiary">{user.role}</p>
               </div>
-              <Button variant="ghost" size="icon-xs" aria-label="Sign out">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Sign out"
+                render={<Link href="/auth/login" />}
+              >
                 <LogOut />
               </Button>
             </>
@@ -166,22 +161,7 @@ export function Sidebar({
             </div>
             {header && <div className="border-b border-line-subtle p-3">{header}</div>}
             <nav aria-label="Main" className="flex-1 overflow-y-auto px-2.5 py-4">
-              {sections.map((section, i) => (
-                <div key={section.label ?? i} className={cn(i > 0 && "mt-6")}>
-                  {section.label && (
-                    <p className="px-2.5 pb-2 text-overline font-semibold tracking-(--text-overline--letter-spacing) text-ink-tertiary uppercase">
-                      {section.label}
-                    </p>
-                  )}
-                  <ul className="flex flex-col gap-0.5">
-                    {section.items.map((item) => (
-                      <li key={item.href}>
-                        <NavLink item={item} pathname={pathname} collapsed={false} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              <NavSections sections={sections} pathname={pathname} collapsed={false} />
             </nav>
             <div className="shrink-0 border-t border-line-subtle p-3">
               {footer && <div className="mb-2">{footer}</div>}
@@ -194,7 +174,12 @@ export function Sidebar({
                   <p className="truncate text-[0.8125rem] font-medium text-ink">{user.name}</p>
                   <p className="truncate text-[0.6875rem] text-ink-tertiary">{user.role}</p>
                 </div>
-                <Button variant="ghost" size="icon-xs" aria-label="Sign out">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Sign out"
+                  render={<Link href="/auth/login" />}
+                >
                   <LogOut />
                 </Button>
               </div>
@@ -206,16 +191,135 @@ export function Sidebar({
   );
 }
 
+/** Shared by the desktop rail and the mobile drawer so they cannot drift. */
+function NavSections({
+  sections,
+  pathname,
+  collapsed,
+}: {
+  sections: NavSection[];
+  pathname: string;
+  collapsed: boolean;
+}) {
+  return (
+    <>
+      {sections.map((section, i) => (
+        <div key={section.label ?? i} className={cn(i > 0 && "mt-6")}>
+          {section.label && !collapsed && (
+            <p className="px-2.5 pb-2 text-overline font-semibold tracking-(--text-overline--letter-spacing) text-ink-tertiary uppercase">
+              {section.label}
+            </p>
+          )}
+          <ul className="flex flex-col gap-0.5">
+            {section.items.map((item) =>
+              // Collapsed to an icon rail there is no room to disclose children,
+              // so the parent renders as a plain link and still navigates.
+              item.children && !collapsed ? (
+                <NavGroup key={item.href} item={item} pathname={pathname} />
+              ) : (
+                <li key={item.href}>
+                  <NavLink item={item} pathname={pathname} collapsed={collapsed} />
+                </li>
+              )
+            )}
+          </ul>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/**
+ * A nav item with sub-items. Opens itself when the current route is inside it,
+ * so a deep link never lands with its own section collapsed, and stays
+ * open/closed by hand after that.
+ */
+function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
+  const children = item.children ?? [];
+  const inside =
+    pathname === item.href ||
+    pathname.startsWith(`${item.href}/`) ||
+    children.some((c) => pathname === c.href || pathname.startsWith(`${c.href}/`));
+
+  const childMatches = children.some(
+    (c) => pathname === c.href || pathname.startsWith(`${c.href}/`)
+  );
+
+  const [open, setOpen] = React.useState(inside);
+  // A client-side navigation into the group should reveal it.
+  React.useEffect(() => {
+    if (inside) setOpen(true);
+  }, [inside]);
+
+  const panelId = `nav-${item.href.replace(/\W+/g, "-")}`;
+
+  return (
+    <li>
+      <div className="flex items-stretch gap-0.5">
+        <NavLink
+          item={item}
+          pathname={pathname}
+          collapsed={false}
+          className="flex-1"
+          // A group parent normally links to its own landing page, which is also
+          // its first child. Let the child own the highlight so only one row
+          // reads as current.
+          suppressActive={childMatches}
+        />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={`${open ? "Collapse" : "Expand"} ${item.label}`}
+          className={cn(
+            "grid w-7 shrink-0 place-items-center rounded-lg text-ink-tertiary",
+            "transition-colors duration-(--duration-fast) hover:bg-surface-sunken hover:text-ink",
+            "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
+          )}
+        >
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              "size-4 transition-transform duration-(--duration-normal) ease-(--ease-out-quint)",
+              open && "rotate-180"
+            )}
+          />
+        </button>
+      </div>
+
+      {open && (
+        <ul
+          id={panelId}
+          className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l border-line-subtle pl-2"
+        >
+          {children.map((child) => (
+            <li key={child.href}>
+              <NavLink item={child} pathname={pathname} collapsed={false} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 function NavLink({
   item,
   pathname,
   collapsed,
+  className,
+  suppressActive,
 }: {
   item: NavItem;
   pathname: string;
   collapsed: boolean;
+  className?: string;
+  /** Set when a descendant already owns the current-page highlight. */
+  suppressActive?: boolean;
 }) {
-  const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+  const matches = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+  const active = matches && !suppressActive;
   const Icon = item.icon;
 
   const link = (
@@ -229,7 +333,8 @@ function NavLink({
         active
           ? "bg-brand-subtle text-brand-subtle-fg"
           : "text-ink-secondary hover:bg-surface-sunken hover:text-ink",
-        collapsed && "justify-center px-0"
+        collapsed && "justify-center px-0",
+        className
       )}
     >
       {active && (

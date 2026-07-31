@@ -6,9 +6,11 @@ import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { label: "API Docs", href: "#" },
-  { label: "Internal Wiki", href: "#" },
-  { label: "System Health", href: "#" },
+  // Pointed at the routes that own each concern. These were `href="#"`, which
+  // renders a focusable link that goes nowhere.
+  { label: "API Docs", href: "/admin/docs" },
+  { label: "Internal Wiki", href: "/admin/docs" },
+  { label: "System Health", href: "/admin/nodes" },
 ];
 
 /**

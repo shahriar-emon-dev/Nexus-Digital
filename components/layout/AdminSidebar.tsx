@@ -1,18 +1,31 @@
 "use client";
 
 import {
+  BookText,
   Boxes,
+  CalendarRange,
+  LineChart,
   FileSignature,
+  Gauge,
+  KeyRound,
   Layers,
+  LayoutTemplate,
   LifeBuoy,
   MessageSquareQuote,
+  Radar,
+  ScrollText,
+  Server,
   Settings,
+  ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   SquareUser,
   Users,
   Wallet,
   LayoutDashboard,
 } from "lucide-react";
+
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
@@ -21,14 +34,85 @@ const sections: NavSection[] = [
   {
     items: [
       { href: "/admin", label: "Executive Analytics", icon: LayoutDashboard, exact: true },
+      {
+        href: "/admin/database",
+        label: "System Security",
+        icon: ShieldAlert,
+        children: [
+          { href: "/admin/database", label: "Query Intelligence", icon: Radar, exact: true },
+        ],
+      },
+      {
+        // The SEO designs shipped their own rail. Their items are added here
+        // rather than displacing anything that was already in this sidebar.
+        href: "/admin/analytics/seo",
+        label: "SEO Intelligence",
+        icon: LineChart,
+        children: [
+          {
+            href: "/admin/analytics/seo",
+            label: "Overview",
+            icon: Gauge,
+            exact: true,
+          },
+          {
+            href: "/admin/analytics/keywords",
+            label: "Keywords",
+            icon: LineChart,
+          },
+        ],
+      },
       { href: "/admin/clients", label: "Client Directory", icon: Users },
-      { href: "/admin/staff", label: "Staff & Roles", icon: SquareUser },
+      {
+        href: "/admin/staff",
+        label: "Staff & Roles",
+        icon: SquareUser,
+        children: [
+          { href: "/admin/staff", label: "Directory", icon: SquareUser, exact: true },
+          { href: "/admin/staff/allocation", label: "Resource Allocation", icon: CalendarRange },
+        ],
+      },
       { href: "/admin/services", label: "Services Catalog", icon: Boxes },
       { href: "/admin/projects", label: "Project Templates", icon: Layers },
       { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, badge: 4 },
       { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote, badge: 2 },
-      { href: "/admin/content/blog", label: "CMS & Content", icon: FileSignature },
-      { href: "/admin/settings", label: "Security & Audit Logs", icon: ShieldCheck, exact: true },
+      {
+        href: "/admin/content/blog",
+        label: "CMS & Content",
+        icon: FileSignature,
+        // The landing-page engine is a new content surface; the rest already
+        // existed as routes with no way to reach them from the rail.
+        children: [
+          { href: "/admin/content/blog", label: "Blog", icon: FileSignature },
+          { href: "/admin/content/pages", label: "Landing Pages", icon: LayoutTemplate },
+          { href: "/admin/content/case-studies", label: "Case Studies", icon: Layers },
+          { href: "/admin/content/homepage", label: "Homepage", icon: LayoutDashboard },
+        ],
+      },
+      // Points at the security stub rather than /admin/audit-logs: the
+      // Operations section already owns that route, and two nav items sharing a
+      // destination means two of them highlight as active at once.
+      { href: "/admin/settings/security", label: "Security & Audit Logs", icon: ShieldCheck },
+      { href: "/admin/settings", label: "System Settings", icon: Settings, exact: true },
+    ],
+  },
+  {
+    // Operations items contributed by the SEO / System Core designs.
+    label: "Operations",
+    items: [
+      { href: "/admin/access-control", label: "Access Control", icon: ShieldCheck },
+      { href: "/admin/keys", label: "Key Management", icon: KeyRound },
+      { href: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText },
+      { href: "/admin/traffic", label: "Traffic Control", icon: SlidersHorizontal },
+      { href: "/admin/nodes", label: "Nodes", icon: Server },
+    ],
+  },
+  {
+    label: "Help",
+    items: [
+      { href: "/admin/docs", label: "Docs", icon: BookText },
+      { href: "/admin/logs", label: "Logs", icon: ScrollText },
+      { href: "/admin/support", label: "Support", icon: LifeBuoy },
     ],
   },
 ];
@@ -68,11 +152,23 @@ export function AdminSidebar({ user = defaultUser }: { user?: SidebarUser }) {
       header={<SystemBadges />}
       footer={
         <div className="flex flex-col gap-1">
-          <Button variant="ghost" size="sm" className="w-full justify-start">
+          {/* These were plain buttons with no handler and no href — visibly
+              clickable, but inert. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            render={<Link href="/admin/settings" />}
+          >
             <Settings />
             Settings
           </Button>
-          <Button variant="ghost" size="sm" className="w-full justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            render={<Link href="/admin/support" />}
+          >
             <LifeBuoy />
             Support
           </Button>

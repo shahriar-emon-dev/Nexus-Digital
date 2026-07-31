@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUp, Search } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 import { EmergencyLock } from "@/components/admin/EmergencyLock";
+import { defaultCommands } from "./DashboardHeader";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
@@ -100,9 +101,12 @@ export function AdminCommandBar() {
         <EmergencyLock />
         <ThemeToggle />
         <NotificationBell />
-        <Button variant="ghost" size="icon-sm" aria-label="Search">
-          <Search />
-        </Button>
+        {/* The real palette, not the inert magnifier that used to sit here.
+            Admin pages have no `DashboardHeader`, so this is the only ⌘K entry
+            point in this shell. */}
+        <div className="hidden w-56 xl:block">
+          <CommandPalette items={defaultCommands} />
+        </div>
       </div>
     </header>
   );

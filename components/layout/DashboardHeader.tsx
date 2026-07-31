@@ -4,13 +4,24 @@ import * as React from "react";
 import { Building2, FolderKanban, LifeBuoy, Receipt, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { clientAccount, portalProjects } from "@/lib/client-portal";
 import { CommandPalette, type CommandItem } from "@/components/shared/CommandPalette";
 import { NotificationBell, type Notification } from "@/components/shared/NotificationBell";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
-const defaultCommands: CommandItem[] = [
-  { id: "p1", group: "Projects", label: "Northwind — Site rebuild", hint: "In progress", href: "/client/projects", icon: FolderKanban },
-  { id: "p2", group: "Projects", label: "Halcyon — Paid media Q3", hint: "In review", href: "/client/projects", icon: FolderKanban },
+/** Shared with `AdminCommandBar`, so both shells search the same set. */
+export const defaultCommands: CommandItem[] = [
+  // Derived from the project list so the palette jumps to the real detail route
+  // and cannot invent a client — it previously listed a "Halcyon" account that
+  // existed nowhere else, next to Northwind's own Paid Media project.
+  ...portalProjects.map((project) => ({
+    id: project.id,
+    group: "Projects",
+    label: `${clientAccount.name} — ${project.name}`,
+    hint: project.status,
+    href: project.href,
+    icon: FolderKanban,
+  })),
   { id: "i1", group: "Invoices", label: "INV-2043", hint: "Overdue · $12,400", href: "/client/invoices", icon: Receipt },
   { id: "c1", group: "Clients", label: "Northwind Retail", href: "/admin/clients", icon: Building2 },
   { id: "s1", group: "People", label: "Dez Okafor", hint: "Team Lead", href: "/admin/staff", icon: Users },
@@ -47,6 +58,7 @@ const defaultNotifications: Notification[] = [
  */
 export function DashboardHeader({
   title,
+  titleAs = "h1",
   description,
   breadcrumbs,
   actions,
@@ -56,6 +68,11 @@ export function DashboardHeader({
   className,
 }: {
   title: string;
+  /**
+   * Pages that render their own page heading pass "p", so the route title in
+   * this bar does not become a second <h1> saying the same thing.
+   */
+  titleAs?: "h1" | "p";
   description?: string;
   breadcrumbs?: { label: string; href?: string }[];
   actions?: React.ReactNode;
@@ -110,7 +127,11 @@ export function DashboardHeader({
               </ol>
             </nav>
           )}
-          <h1 className="font-heading text-h3 font-semibold text-ink">{title}</h1>
+          {titleAs === "h1" ? (
+            <h1 className="font-heading text-h3 font-semibold text-ink">{title}</h1>
+          ) : (
+            <p className="font-heading text-h3 font-semibold text-ink">{title}</p>
+          )}
           {description && (
             <p className="mt-1 max-w-prose text-sm text-ink-tertiary">{description}</p>
           )}
