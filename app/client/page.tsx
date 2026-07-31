@@ -1,154 +1,355 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
-  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  Bot,
   CalendarDays,
-  CircleDollarSign,
-  FolderKanban,
+  ChevronRight,
   MessagesSquare,
-  Plus,
+  Landmark,
+  Mail,
+  MoveRight,
+  Paperclip,
+  Rocket,
+  ShieldCheck,
+  Store,
+  Video,
+  VideoIcon,
+  Wallet,
+  type LucideIcon,
 } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import {
+  clientAccount,
+  inFlightProjects,
+  portalKpis,
+  portalMessages,
+  upcomingMeeting,
+  type PortalProject,
+} from "@/lib/client-portal";
+import { leadership } from "@/lib/team";
+import { Avatar, AvatarFallback, AvatarGroup, initials } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { ActionFab } from "@/components/client/ActionFab";
+import { HealthGauge } from "@/components/client/HealthGauge";
 
-const projects = [
-  { name: "Site rebuild", phase: "Sprint 14 · Build", progress: 68, due: "12 Sep", lead: "Dez Okafor" },
-  { name: "Paid media — Q3", phase: "Optimisation", progress: 41, due: "30 Sep", lead: "Mira Kaur" },
-  { name: "Brand refresh", phase: "Concepts", progress: 22, due: "18 Oct", lead: "Sam Ellery" },
-];
+export const metadata: Metadata = { title: "Overview" };
 
-const activity = [
-  { who: "Dez Okafor", what: "moved Category taxonomy v2 to In review", when: "12 min ago" },
-  { who: "Mira Kaur", what: "uploaded August-performance.pdf", when: "2 hours ago" },
-  { who: "Sam Ellery", what: "completed Design system rollout", when: "Yesterday" },
-  { who: "Dez Okafor", what: "replied to your comment on Checkout rebuild", when: "Yesterday" },
-];
+const kpiIcons: Record<string, LucideIcon> = {
+  projects: Rocket,
+  milestone: CalendarDays,
+  messages: Mail,
+  billing: Wallet,
+};
+
+// Must cover every `PortalProject["icon"]` value — a gap here resolves to
+// `undefined` and Next fails the route with "Unsupported Server Component type".
+const projectIcons: Record<PortalProject["icon"], LucideIcon> = {
+  bank: Landmark,
+  ai: Bot,
+  store: Store,
+  chart: BarChart3,
+  shield: ShieldCheck,
+};
+
+const tone = {
+  brand: { text: "text-brand", bar: "bg-brand", chip: "bg-brand/10 text-brand" },
+  ion: { text: "text-ion", bar: "bg-ion", chip: "bg-ion/10 text-ion" },
+  orchid: { text: "text-chart-3", bar: "bg-chart-3", chip: "bg-chart-3/10 text-chart-3" },
+} as const;
+
+const memberById = (id: string) => leadership.find((m) => m.id === id);
 
 export default function ClientOverviewPage() {
+  const attendees = upcomingMeeting.attendeeIds
+    .map((id) => memberById(id))
+    .filter((m): m is NonNullable<typeof m> => Boolean(m))
+    .map((m) => ({ name: m.name }));
+
   return (
     <>
       <DashboardHeader
-        title="Good afternoon, Priya"
-        description="Three projects are moving. One invoice needs your attention."
+        title="Overview"
         breadcrumbs={[{ label: "Portal", href: "/client" }, { label: "Overview" }]}
-        actions={
-          <Button size="sm">
-            <Plus />
-            Request work
-          </Button>
-        }
       />
 
-      <div className="flex flex-col gap-6 px-5 py-6 lg:px-8">
-        <Alert tone="warning">
-          <AlertTitle>Invoice INV-2043 is 4 days overdue</AlertTitle>
-          <AlertDescription>
-            $12,400 for August retainer. Paying now keeps the September sprint on schedule.
-          </AlertDescription>
-          <div className="mt-2">
-            <Button size="sm" variant="outline" render={<Link href="/client/invoices" />}>
-              Review invoice
-              <ArrowRight />
+      <div className="flex flex-col gap-10 px-5 py-12 lg:px-10">
+        {/* ── Welcome + health ───────────────────────────────────────────── */}
+        <Card
+          variant="glass"
+          className="beam-rotate flex-col items-center justify-between gap-8 rounded-3xl p-10 md:flex-row"
+        >
+          <div className="relative z-10 flex flex-col gap-4">
+            <h2 className="font-heading text-[3rem] leading-[1.2] font-bold tracking-tight text-balance text-ink">
+              Welcome back,{" "}
+              <span className="text-brand">{clientAccount.name} Team.</span>
+            </h2>
+            <p className="max-w-xl text-lg leading-relaxed text-ink-secondary">
+              {clientAccount.welcome}
+            </p>
+          </div>
+
+          <HealthGauge score={clientAccount.healthScore} basis={clientAccount.healthBasis} />
+        </Card>
+
+        {/* ── KPIs ───────────────────────────────────────────────────────── */}
+        <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {portalKpis.map((kpi) => {
+            const Icon = kpiIcons[kpi.icon];
+            const t = tone[kpi.tone];
+            return (
+              <Card
+                key={kpi.id}
+                variant="glass"
+                lift
+                className={cn(
+                  "justify-between rounded-2xl p-6",
+                  kpi.emphasis && "border-l-2 border-l-brand"
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <span className={cn("grid size-9 place-items-center rounded-lg", t.chip)}>
+                    <Icon className="size-5" aria-hidden />
+                  </span>
+
+                  {kpi.href && (
+                    <Link
+                      href={kpi.href}
+                      aria-label={`Open ${kpi.label}`}
+                      className="rounded-sm text-ink-tertiary transition-colors hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
+                    >
+                      <ArrowUpRight className="size-5" aria-hidden />
+                    </Link>
+                  )}
+                  {kpi.badge && (
+                    <Badge variant="danger" size="sm" className="tracking-tight uppercase">
+                      {kpi.badge.label}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <h3 className="text-[0.8125rem] text-ink-tertiary">{kpi.label}</h3>
+                  <p
+                    data-tabular
+                    className={cn(
+                      "mt-1 font-heading font-semibold text-ink",
+                      kpi.note ? "truncate text-base" : "text-[2rem] leading-tight"
+                    )}
+                  >
+                    {kpi.value}
+                  </p>
+                  {kpi.note && (
+                    <p className={cn("mt-1 text-[0.8125rem]", t.text)}>{kpi.note}</p>
+                  )}
+                  {kpi.action && (
+                    <Button
+                      size="sm"
+                      className="mt-4 w-full transition-transform hover:scale-[1.02]"
+                      render={<Link href={kpi.action.href} />}
+                    >
+                      {kpi.action.label}
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </section>
+
+        {/* ── Project velocity ───────────────────────────────────────────── */}
+        <section>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-heading text-[2rem] leading-[1.3] font-semibold text-ink">
+              Active Projects Velocity
+            </h2>
+            <Button
+              variant="link"
+              size="sm"
+              className="gap-2 transition-[gap] duration-(--duration-normal) hover:gap-3"
+              render={<Link href="/client/projects" />}
+            >
+              View All Projects
+              <MoveRight />
             </Button>
           </div>
-        </Alert>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Active projects" value="3" caption="1 shipping this month" icon={FolderKanban} />
-          <StatCard
-            label="Hours this month"
-            value="248"
-            delta="+18"
-            direction="up"
-            caption="of 260 retained"
-            icon={CalendarDays}
-            series={[180, 196, 210, 224, 231, 240, 248]}
-          />
-          <StatCard label="Unread messages" value="5" caption="Across 2 projects" icon={MessagesSquare} />
-          <StatCard
-            label="Outstanding"
-            value="$12,400"
-            delta="Overdue"
-            direction="down"
-            positiveIsGood
-            caption="1 invoice"
-            icon={CircleDollarSign}
-          />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your projects</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-5 pt-4">
-              {projects.map((project) => (
-                <div key={project.name} className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href="/client/projects"
-                      className="text-sm font-medium text-ink hover:underline"
-                    >
-                      {project.name}
-                    </Link>
-                    <Badge variant="outline" size="sm">
-                      {project.phase}
-                    </Badge>
-                    <span
-                      data-tabular
-                      className="ml-auto text-xs text-ink-tertiary"
-                    >
-                      {project.progress}% · due {project.due}
-                    </span>
-                  </div>
-                  <Progress value={project.progress} aria-label={`${project.name} progress`} />
-                  <p className="text-xs text-ink-tertiary">Led by {project.lead}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent activity</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <ul className="flex flex-col gap-4">
-                {activity.map((item, i) => (
-                  <li key={i} className="flex gap-3">
-                    <Avatar size="xs" className="mt-0.5">
-                      <AvatarFallback>{initials(item.who)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[0.8125rem] leading-snug text-ink-secondary">
-                        <span className="font-medium text-ink">{item.who}</span> {item.what}
-                      </p>
-                      <p className="mt-0.5 text-[0.6875rem] text-ink-tertiary">{item.when}</p>
+          <ul className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {inFlightProjects.map((project) => {
+              const Icon = projectIcons[project.icon];
+              const t = tone[project.tone];
+              const lead = memberById(project.leadId);
+              return (
+                <li key={project.id}>
+                  <Card variant="glass" lift className="h-full gap-6 rounded-2xl p-8">
+                    <div className="flex items-center gap-4">
+                      <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-line bg-surface-sunken">
+                        <Icon className={cn("size-5", t.text)} aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="font-heading text-[1.375rem] leading-tight font-semibold text-ink">
+                          {project.name}
+                        </h3>
+                        {lead && (
+                          <p className="text-[0.8125rem] text-ink-tertiary">
+                            Lead: {lead.name}
+                          </p>
+                        )}
+                      </div>
                     </div>
+
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between text-[0.8125rem]">
+                        <span className="text-ink-tertiary">Progress</span>
+                        <span data-tabular className={cn("font-bold", t.text)}>
+                          {project.progress}%
+                        </span>
+                      </div>
+                      <div
+                        className="h-1.5 overflow-hidden rounded-full bg-line"
+                        role="progressbar"
+                        aria-label={`${project.name} progress`}
+                        aria-valuenow={project.progress}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            t.bar,
+                            // The design glows only the leading project's bar.
+                            project.tone === "brand" &&
+                              "shadow-[0_0_20px_var(--brand-glow)]"
+                          )}
+                          style={{ width: `${project.progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-surface-sunken p-4">
+                      <p className="mb-1 text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase">
+                        Current Stage
+                      </p>
+                      <p className="font-medium text-ink">{project.stage}</p>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      className={cn("mt-auto w-full rounded-xl", t.text)}
+                      render={<Link href={project.href} />}
+                    >
+                      View Project Board
+                      <ChevronRight />
+                    </Button>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        {/* ── Communications + meetings ──────────────────────────────────── */}
+        <section className="grid grid-cols-1 gap-6 pb-12 lg:grid-cols-2">
+          <Card variant="glass" lift className="rounded-2xl">
+            <div className="flex items-center justify-between border-b border-line p-6">
+              <h2 className="font-heading text-xl font-semibold text-ink">
+                Recent Communications
+              </h2>
+              <MessagesSquare className="size-5 text-ink-tertiary" aria-hidden />
+            </div>
+
+            <ul className="p-2">
+              {portalMessages.map((message) => {
+                const author = memberById(message.authorId);
+                return (
+                  <li key={message.id}>
+                    <Link
+                      href="/client/messages"
+                      className="flex items-start gap-4 rounded-xl p-4 transition-colors hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none"
+                    >
+                      <Avatar size="default" className="rounded-lg">
+                        <AvatarFallback>{initials(author?.name ?? "?")}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <span className="font-semibold text-ink">{author?.name}</span>
+                          <span className="shrink-0 text-[0.8125rem] text-ink-tertiary">
+                            {message.time}
+                          </span>
+                        </div>
+                        <p className="line-clamp-1 text-[0.8125rem] text-ink-secondary">
+                          {message.preview}
+                        </p>
+                        {message.attachment && (
+                          <p className="mt-2 flex items-center gap-2 text-[0.625rem] text-ink-tertiary">
+                            <Paperclip className="size-3.5" aria-hidden />
+                            {message.attachment}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
                   </li>
-                ))}
-              </ul>
-              <Separator className="my-4" />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full"
-                render={<Link href="/client/messages" />}
-              >
-                Open messages
-                <ArrowRight />
-              </Button>
-            </CardContent>
+                );
+              })}
+            </ul>
+
+            <Button
+              variant="ghost"
+              className="mt-auto w-full rounded-none rounded-b-2xl py-4"
+              render={<Link href="/client/messages" />}
+            >
+              Open Conversation Center
+            </Button>
           </Card>
-        </div>
+
+          <Card variant="glass" lift className="rounded-2xl">
+            <div className="flex items-center justify-between border-b border-line p-6">
+              <h2 className="font-heading text-xl font-semibold text-ink">Upcoming Meetings</h2>
+              <VideoIcon className="size-5 text-ink-tertiary" aria-hidden />
+            </div>
+
+            <div className="flex flex-col items-center gap-6 p-8 text-center">
+              <span className="relative grid size-20 place-items-center rounded-full bg-brand/10">
+                <CalendarDays className="size-10 text-brand" aria-hidden />
+                <span className="absolute -top-2 -right-2 grid size-8 place-items-center rounded-full bg-danger text-sm font-bold text-canvas">
+                  1<span className="sr-only"> meeting scheduled</span>
+                </span>
+              </span>
+
+              <div>
+                <h3 className="font-heading text-2xl font-semibold text-ink">
+                  {upcomingMeeting.title}
+                </h3>
+                <p className="mt-2 text-ink-tertiary">
+                  {upcomingMeeting.when} • {upcomingMeeting.durationMinutes} minutes
+                </p>
+              </div>
+
+              <AvatarGroup
+                people={attendees}
+                size="sm"
+                max={2 + upcomingMeeting.extraAttendees}
+              />
+
+              <Button
+                size="xl"
+                className="rounded-xl px-12 shadow-[0_0_20px_var(--brand-glow)] transition-transform hover:scale-105"
+                render={<Link href="/client/meetings" />}
+              >
+                Join Video Room
+                <Video />
+              </Button>
+            </div>
+          </Card>
+        </section>
       </div>
+
+      <ActionFab />
     </>
   );
 }
