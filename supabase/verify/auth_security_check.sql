@@ -127,16 +127,37 @@ begin
     case when n = 0 then 'PASS - denied' else 'FAIL - leaked' end);
 
   begin
+    update public.profiles set full_name = 'Hijacked' where id = admin;
+    get diagnostics n = ROW_COUNT;
+    insert into _check values (12,'rls','user cannot UPDATE another user row',
+      case when n = 0 then 'PASS - 0 rows' else 'FAIL - wrote ' || n end);
+  exception when others then
+    insert into _check values (12,'rls','user cannot UPDATE another user row','PASS - blocked');
+  end;
+
+  begin
     update public.roles set name = 'hijacked' where id = 'global-admin';
     get diagnostics n = ROW_COUNT;
-    insert into _check values (12,'rls','user cannot write the roles table',
+    insert into _check values (13,'rls','user cannot write the roles table',
       case when n = 0 then 'PASS - denied' else 'FAIL - wrote ' || n end);
   exception when others then
-    insert into _check values (12,'rls','user cannot write the roles table','PASS - denied');
+    insert into _check values (13,'rls','user cannot write the roles table','PASS - denied');
+  end;
+
+  -- roles must still be readable now that the FOR ALL policy was split.
+  select count(*) into n from public.roles;
+  insert into _check values (14,'rls','user CAN still read roles',
+    case when n = 4 then 'PASS - 4 roles' else 'FAIL - sees ' || n end);
+
+  begin
+    insert into public.roles (id, name) values ('rogue','Rogue');
+    insert into _check values (15,'rls','user cannot INSERT a role','FAIL - allowed');
+  exception when others then
+    insert into _check values (15,'rls','user cannot INSERT a role','PASS - denied');
   end;
 
   select count(*) into n from public.schema_migrations;
-  insert into _check values (13,'rls','user cannot read the migration registry',
+  insert into _check values (16,'rls','user cannot read the migration registry',
     case when n = 0 then 'PASS - denied' else 'FAIL - sees ' || n end);
 
   reset role;
@@ -144,8 +165,12 @@ begin
   -- Confirm nothing above actually changed the row on disk.
   select count(*) into n from public.profiles
    where id = probe and portal::text = before_portal and role_id is null and is_active;
-  insert into _check values (14,'escalation','probe row provably unmodified on disk',
+  insert into _check values (17,'escalation','probe row provably unmodified on disk',
     case when n = 1 then 'PASS' else 'FAIL - row was altered' end);
+
+  select count(*) into n from public.profiles where id = admin and full_name <> 'Hijacked';
+  insert into _check values (18,'rls','admin row provably unmodified on disk',
+    case when n = 1 then 'PASS' else 'FAIL - admin row was written' end);
 
   -- ---------------------------------------------------------- admin powers --
   set local role authenticated;
@@ -153,21 +178,21 @@ begin
     json_build_object('sub', admin, 'role', 'authenticated')::text, true);
 
   select count(*) into n from public.profiles;
-  insert into _check values (15,'admin','admin sees all profiles',
+  insert into _check values (19,'admin','admin sees all profiles',
     case when n >= 2 then 'PASS - ' || n || ' rows' else 'FAIL - sees ' || n end);
 
   begin
     update public.profiles set portal = 'STAFF', role_id = 'project-lead' where id = probe;
     get diagnostics n = ROW_COUNT;
-    insert into _check values (16,'admin','admin CAN assign portal and role',
+    insert into _check values (20,'admin','admin CAN assign portal and role',
       case when n = 1 then 'PASS' else 'FAIL - wrote ' || n end);
   exception when others then
     get stacked diagnostics msg = MESSAGE_TEXT;
-    insert into _check values (16,'admin','admin CAN assign portal and role','FAIL - ' || left(msg,40));
+    insert into _check values (20,'admin','admin CAN assign portal and role','FAIL - ' || left(msg,40));
   end;
 
   select count(*) into n from public.schema_migrations;
-  insert into _check values (17,'admin','admin CAN read the migration registry',
+  insert into _check values (21,'admin','admin CAN read the migration registry',
     case when n >= 1 then 'PASS - ' || n || ' migrations' else 'FAIL - sees 0' end);
 
   reset role;
@@ -177,7 +202,7 @@ begin
   delete from auth.users where id = probe;
 
   select count(*) into n from public.profiles where id = probe;
-  insert into _out values (18,'cleanup','cascade delete removed the probe profile',
+  insert into _out values (22,'cleanup','cascade delete removed the probe profile',
     case when n = 0 then 'PASS' else 'FAIL - orphan profile left behind' end);
 end $$;
 
