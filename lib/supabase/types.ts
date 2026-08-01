@@ -234,6 +234,81 @@ export type Database = {
         };
         Relationships: [];
       };
+      projects: {
+        Row: {
+          budget_spent: number; budget_total: number; created_at: string;
+          description: string; featured: boolean; icon: string; id: string;
+          lead_id: string | null; name: string; organization_id: string;
+          slug: string; stage: string; start_date: string | null;
+          status: Database["public"]["Enums"]["project_status"];
+          target_end: string | null; tone: string; updated_at: string;
+        };
+        Insert: {
+          budget_spent?: number; budget_total?: number; created_at?: string;
+          description?: string; featured?: boolean; icon?: string; id?: string;
+          lead_id?: string | null; name: string; organization_id: string;
+          slug: string; stage?: string; start_date?: string | null;
+          status?: Database["public"]["Enums"]["project_status"];
+          target_end?: string | null; tone?: string; updated_at?: string;
+        };
+        Update: {
+          budget_spent?: number; budget_total?: number; created_at?: string;
+          description?: string; featured?: boolean; icon?: string; id?: string;
+          lead_id?: string | null; name?: string; organization_id?: string;
+          slug?: string; stage?: string; start_date?: string | null;
+          status?: Database["public"]["Enums"]["project_status"];
+          target_end?: string | null; tone?: string; updated_at?: string;
+        };
+        Relationships: [];
+      };
+      project_milestones: {
+        Row: {
+          created_at: string; description: string; display_order: number;
+          due_date: string | null; id: string; lead_id: string | null;
+          phase: string; progress: number | null; project_id: string;
+          status: Database["public"]["Enums"]["milestone_status"];
+          title: string; updated_at: string;
+        };
+        Insert: {
+          created_at?: string; description?: string; display_order?: number;
+          due_date?: string | null; id?: string; lead_id?: string | null;
+          phase: string; progress?: number | null; project_id: string;
+          status?: Database["public"]["Enums"]["milestone_status"];
+          title: string; updated_at?: string;
+        };
+        Update: {
+          created_at?: string; description?: string; display_order?: number;
+          due_date?: string | null; id?: string; lead_id?: string | null;
+          phase?: string; progress?: number | null; project_id?: string;
+          status?: Database["public"]["Enums"]["milestone_status"];
+          title?: string; updated_at?: string;
+        };
+        Relationships: [];
+      };
+      project_tasks: {
+        Row: {
+          assignee_id: string | null; awaiting_approval: boolean;
+          column_id: Database["public"]["Enums"]["board_column"];
+          created_at: string; description: string; discipline: string;
+          display_order: number; id: string; priority: boolean;
+          project_id: string; title: string; updated_at: string;
+        };
+        Insert: {
+          assignee_id?: string | null; awaiting_approval?: boolean;
+          column_id?: Database["public"]["Enums"]["board_column"];
+          created_at?: string; description?: string; discipline?: string;
+          display_order?: number; id?: string; priority?: boolean;
+          project_id: string; title: string; updated_at?: string;
+        };
+        Update: {
+          assignee_id?: string | null; awaiting_approval?: boolean;
+          column_id?: Database["public"]["Enums"]["board_column"];
+          created_at?: string; description?: string; discipline?: string;
+          display_order?: number; id?: string; priority?: boolean;
+          project_id?: string; title?: string; updated_at?: string;
+        };
+        Relationships: [];
+      };
       roles: {
         Row: {
           created_at: string;
@@ -259,10 +334,23 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: { [_ in never]: never };
+    Views: {
+      project_progress: {
+        Row: {
+          milestone_done: number | null;
+          milestone_total: number | null;
+          progress: number | null;
+          project_id: string | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: { [_ in never]: never };
     Enums: {
       access_level: "none" | "audit" | "view" | "edit" | "admin" | "full";
+      board_column: "backlog" | "in-progress" | "review" | "done";
+      milestone_status: "done" | "active" | "upcoming" | "final";
+      project_status: "Active" | "On Hold" | "Completed" | "Archived";
       portal: "ADMIN" | "STAFF" | "CLIENT";
     };
     CompositeTypes: { [_ in never]: never };

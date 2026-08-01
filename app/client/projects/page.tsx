@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { clientAccount, portfolioStats } from "@/lib/client-portal";
+import { getMyProfile } from "@/lib/supabase/profile-actions";
+import { listProjects, portfolioStatsFrom } from "@/lib/supabase/project-queries";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ProjectsGrid } from "./ProjectsGrid";
 
@@ -13,7 +14,13 @@ const money = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-export default function ClientProjectsPage() {
+export default async function ClientProjectsPage() {
+  // RLS scopes this to the caller's organisation; no filter is passed, so it
+  // cannot be forgotten.
+  const [projects, profile] = await Promise.all([listProjects(), getMyProfile()]);
+  const portfolioStats = portfolioStatsFrom(projects);
+  const accountName = profile?.organizations?.name ?? "Your";
+
   return (
     <>
       <DashboardHeader
@@ -23,10 +30,11 @@ export default function ClientProjectsPage() {
 
       <div className="flex flex-1 flex-col px-5 py-10 lg:px-10">
         <ProjectsGrid
+          projects={projects}
           heading={
             <div>
               <h2 className="font-heading text-[2.5rem] leading-[1.2] font-bold tracking-tight text-ink md:text-[3rem]">
-                {clientAccount.name} Projects
+                {accountName} Projects
               </h2>
               <p className="mt-2 text-lg text-ink-tertiary">
                 Managing the future of digital experience.

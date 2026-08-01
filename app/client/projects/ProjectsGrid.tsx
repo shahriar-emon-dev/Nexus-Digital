@@ -14,9 +14,9 @@ import {
 
 import { cn } from "@/lib/utils";
 import {
-  portalProjects,
   projectStatuses,
   projectStatusTone,
+  type PortalProject,
   type ProjectStatus,
 } from "@/lib/client-portal";
 import { leadership } from "@/lib/team";
@@ -59,14 +59,21 @@ const shortDate = new Intl.DateTimeFormat("en-US", {
  * the alternative was an empty placeholder component in the page just to hold
  * the layout together.
  */
-export function ProjectsGrid({ heading }: { heading: React.ReactNode }) {
+export function ProjectsGrid({
+  heading,
+  projects,
+}: {
+  heading: React.ReactNode;
+  /** Supplied by the server from the database; RLS has already scoped it. */
+  projects: PortalProject[];
+}) {
   const [filter, setFilter] = React.useState<ProjectStatus | "All Projects">("All Projects");
 
   const shown = React.useMemo(
     () =>
       filter === "All Projects"
-        ? portalProjects
-        : portalProjects.filter((p) => p.status === filter),
+        ? projects
+        : projects.filter((p) => p.status === filter),
     [filter]
   );
 
@@ -108,7 +115,7 @@ export function ProjectsGrid({ heading }: { heading: React.ReactNode }) {
       </div>
 
       <p aria-live="polite" className="sr-only">
-        Showing {shown.length} of {portalProjects.length} projects.
+        Showing {shown.length} of {projects.length} projects.
       </p>
 
       <ul className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
