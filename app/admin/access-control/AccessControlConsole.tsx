@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Check,
   Globe2,
   KeyRound,
+  Loader2,
   Lock,
   Network,
   Pencil,
@@ -21,19 +23,21 @@ import {
 import {
   accessLevelRank,
   accessLevels,
-  authPolicy,
   geoRegionOptions,
-  isolationPolicies,
   isValidIpRule,
-  networkPolicy,
-  permissionModules,
-  roleMatrix,
-  roles,
   sessionTimeoutOptions,
   type AccessLevel,
+  type IsolationPolicy,
+  type PasswordRule,
+  type PermissionModule,
   type Role,
   type TotpEnforcement,
 } from "@/lib/access-control";
+import {
+  saveAccessControl,
+  type AccessControlSnapshot,
+} from "@/lib/supabase/access-control-actions";
+import { createClient } from "@/lib/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,34 +86,42 @@ const cloneMatrix = (m: Matrix): Matrix =>
 
 /* ---------------------------------------------------------------- page ---- */
 
-export function AccessControlConsole() {
+export function AccessControlConsole({ snapshot }: { snapshot: AccessControlSnapshot }) {
   const toast = useToast();
+  const router = useRouter();
+
+  const permissionModules: PermissionModule[] = snapshot.modules;
 
   /* ---- draft state: everything edits a draft, nothing applies until Save -- */
-  const [matrix, setMatrix] = React.useState<Matrix>(() => cloneMatrix(roleMatrix));
-  const [roleList, setRoleList] = React.useState<Role[]>(roles);
-  const [totp, setTotp] = React.useState<TotpEnforcement>(authPolicy.totpEnforcement);
-  const [timeout_, setTimeout_] = React.useState<number>(authPolicy.sessionTimeoutMinutes);
-  const [passwordRules, setPasswordRules] = React.useState(authPolicy.passwordRules);
-  const [isolation, setIsolation] = React.useState(isolationPolicies);
-  const [ipRanges, setIpRanges] = React.useState(networkPolicy.ipRanges);
-  const [geoEnabled, setGeoEnabled] = React.useState(networkPolicy.geoFencing.enabled);
-  const [geoRegions, setGeoRegions] = React.useState(networkPolicy.geoFencing.regions);
+  const [matrix, setMatrix] = React.useState<Matrix>(() => cloneMatrix(snapshot.matrix));
+  const [roleList, setRoleList] = React.useState<Role[]>(snapshot.roles);
+  const [totp, setTotp] = React.useState<TotpEnforcement>(snapshot.totpEnforcement);
+  const [timeout_, setTimeout_] = React.useState<number>(snapshot.sessionTimeoutMinutes);
+  const [passwordRules, setPasswordRules] = React.useState<PasswordRule[]>(snapshot.passwordRules);
+  const [isolation, setIsolation] = React.useState<IsolationPolicy[]>(snapshot.isolation);
+  const [ipRanges, setIpRanges] = React.useState<string[]>(snapshot.ipAllowList);
+  const [geoEnabled, setGeoEnabled] = React.useState(snapshot.geoFencingEnabled);
+  const [geoRegions, setGeoRegions] = React.useState<string[]>(snapshot.geoRegions);
+  const [saving, setSaving] = React.useState(false);
 
   /** The last committed snapshot — what "Discard" restores and what dirty compares against. */
-  const [saved, setSaved] = React.useState(() =>
-    JSON.stringify({
-      matrix: roleMatrix,
-      roles,
-      totp: authPolicy.totpEnforcement,
-      timeout: authPolicy.sessionTimeoutMinutes,
-      passwordRules: authPolicy.passwordRules,
-      isolation: isolationPolicies,
-      ipRanges: networkPolicy.ipRanges,
-      geoEnabled: networkPolicy.geoFencing.enabled,
-      geoRegions: networkPolicy.geoFencing.regions,
-    })
+  const baseline = React.useCallback(
+    (s: AccessControlSnapshot) =>
+      JSON.stringify({
+        matrix: s.matrix,
+        roles: s.roles,
+        totp: s.totpEnforcement,
+        timeout: s.sessionTimeoutMinutes,
+        passwordRules: s.passwordRules,
+        isolation: s.isolation,
+        ipRanges: s.ipAllowList,
+        geoEnabled: s.geoFencingEnabled,
+        geoRegions: s.geoRegions,
+      }),
+    []
   );
+
+  const [saved, setSaved] = React.useState(() => baseline(snapshot));
 
   const current = React.useMemo(
     () =>
@@ -206,38 +218,52 @@ export function AccessControlConsole() {
     toast.add({ title: `Role “${role.name}” removed from the draft`, type: "info" });
   }
 
-  function save() {
+  async function save() {
+    setSaving(true);
+    const result = await saveAccessControl({
+      matrix,
+      roles: roleList.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        isSystem: r.isSystem,
+      })),
+      totpEnforcement: totp,
+      sessionTimeoutMinutes: timeout_,
+      passwordRules,
+      ipAllowList: ipRanges,
+      geoFencingEnabled: geoEnabled,
+      geoRegions,
+      isolation: isolation.map((p) => ({ id: p.id, enabled: p.enabled })),
+    });
+    setSaving(false);
+
+    if ("error" in result) {
+      toast.add({ title: "Could not deploy policy", description: result.error, type: "error" });
+      return;
+    }
+
     setSaved(current);
     toast.add({
       title: "Security policy deployed",
       description: `${permissionModules.length} modules · ${roleList.length} roles · ${ipRanges.length} network rules.`,
       type: "success",
     });
+    // Grants gate navigation, so the whole admin shell re-resolves.
+    router.refresh();
   }
 
   function discard() {
-    setMatrix(cloneMatrix(roleMatrix));
-    setRoleList(roles);
-    setTotp(authPolicy.totpEnforcement);
-    setTimeout_(authPolicy.sessionTimeoutMinutes);
-    setPasswordRules(authPolicy.passwordRules);
-    setIsolation(isolationPolicies);
-    setIpRanges(networkPolicy.ipRanges);
-    setGeoEnabled(networkPolicy.geoFencing.enabled);
-    setGeoRegions(networkPolicy.geoFencing.regions);
-    setSaved(
-      JSON.stringify({
-        matrix: roleMatrix,
-        roles,
-        totp: authPolicy.totpEnforcement,
-        timeout: authPolicy.sessionTimeoutMinutes,
-        passwordRules: authPolicy.passwordRules,
-        isolation: isolationPolicies,
-        ipRanges: networkPolicy.ipRanges,
-        geoEnabled: networkPolicy.geoFencing.enabled,
-        geoRegions: networkPolicy.geoFencing.regions,
-      })
-    );
+    setMatrix(cloneMatrix(snapshot.matrix));
+    setRoleList(snapshot.roles);
+    setTotp(snapshot.totpEnforcement);
+    setTimeout_(snapshot.sessionTimeoutMinutes);
+    setPasswordRules(snapshot.passwordRules);
+    setIsolation(snapshot.isolation);
+    setIpRanges(snapshot.ipAllowList);
+    setGeoEnabled(snapshot.geoFencingEnabled);
+    setGeoRegions(snapshot.geoRegions);
+    setSaved(baseline(snapshot));
     toast.add({ title: "Draft discarded", description: "Restored to the deployed policy.", type: "info" });
   }
 
@@ -561,9 +587,9 @@ export function AccessControlConsole() {
               <RotateCcw />
               Discard
             </Button>
-            <Button size="sm" onClick={save}>
-              <Check />
-              Deploy policy
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <Check />}
+              {saving ? "Deploying…" : "Deploy policy"}
             </Button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+import { ruleForRoute } from "@/lib/access-control";
+import type { AccessLevel } from "@/lib/access-control";
 import type { Database, Portal } from "./types";
 
 /**
@@ -14,7 +16,14 @@ import type { Database, Portal } from "./types";
  */
 export async function updateSession(request: NextRequest): Promise<{
   response: NextResponse;
-  user: { id: string; portal: Portal; roleId: string | null; isActive: boolean } | null;
+  user: {
+    id: string;
+    portal: Portal;
+    roleId: string | null;
+    isActive: boolean;
+    /** Grant on the module governing THIS request, resolved from the database. */
+    grant: AccessLevel | null;
+  } | null;
 }> {
   let response = NextResponse.next({ request });
 
@@ -53,6 +62,20 @@ export async function updateSession(request: NextRequest): Promise<{
 
   if (!profile) return { response, user: null };
 
+  // Only the grant for the module governing this exact path is fetched — one
+  // indexed primary-key lookup, not the whole matrix on every request.
+  let grant: AccessLevel | null = null;
+  const rule = ruleForRoute(request.nextUrl.pathname);
+  if (rule && profile.role_id) {
+    const { data: row } = await supabase
+      .from("role_grants")
+      .select("level")
+      .eq("role_id", profile.role_id)
+      .eq("module_id", rule.moduleId)
+      .maybeSingle();
+    grant = (row?.level as AccessLevel | undefined) ?? null;
+  }
+
   return {
     response,
     user: {
@@ -60,6 +83,7 @@ export async function updateSession(request: NextRequest): Promise<{
       portal: profile.portal,
       roleId: profile.role_id,
       isActive: profile.is_active,
+      grant,
     },
   };
 }

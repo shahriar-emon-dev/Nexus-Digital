@@ -114,6 +114,126 @@ export type Database = {
         };
         Relationships: [];
       };
+      isolation_policies: {
+        Row: {
+          description: string;
+          enabled: boolean;
+          id: string;
+          label: string;
+          module_id: string | null;
+          tone: string;
+          updated_at: string;
+        };
+        Insert: {
+          description?: string;
+          enabled?: boolean;
+          id: string;
+          label: string;
+          module_id?: string | null;
+          tone?: string;
+          updated_at?: string;
+        };
+        Update: {
+          description?: string;
+          enabled?: boolean;
+          id?: string;
+          label?: string;
+          module_id?: string | null;
+          tone?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      permission_modules: {
+        Row: {
+          created_at: string;
+          description: string;
+          display_order: number;
+          id: string;
+          label: string;
+          sensitive: boolean;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string;
+          display_order?: number;
+          id: string;
+          label: string;
+          sensitive?: boolean;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          display_order?: number;
+          id?: string;
+          label?: string;
+          sensitive?: boolean;
+        };
+        Relationships: [];
+      };
+      role_grants: {
+        Row: {
+          level: Database["public"]["Enums"]["access_level"];
+          module_id: string;
+          role_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          level?: Database["public"]["Enums"]["access_level"];
+          module_id: string;
+          role_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          level?: Database["public"]["Enums"]["access_level"];
+          module_id?: string;
+          role_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      schema_migrations: {
+        Row: { applied_at: string; applied_by: string; name: string; version: string };
+        Insert: { applied_at?: string; applied_by?: string; name: string; version: string };
+        Update: { applied_at?: string; applied_by?: string; name?: string; version?: string };
+        Relationships: [];
+      };
+      security_policies: {
+        Row: {
+          geo_fencing_enabled: boolean;
+          geo_regions: string[];
+          id: boolean;
+          ip_allow_list: string[];
+          password_rules: Json;
+          session_timeout_minutes: number;
+          totp_enforcement: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          geo_fencing_enabled?: boolean;
+          geo_regions?: string[];
+          id?: boolean;
+          ip_allow_list?: string[];
+          password_rules?: Json;
+          session_timeout_minutes?: number;
+          totp_enforcement?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          geo_fencing_enabled?: boolean;
+          geo_regions?: string[];
+          id?: boolean;
+          ip_allow_list?: string[];
+          password_rules?: Json;
+          session_timeout_minutes?: number;
+          totp_enforcement?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       roles: {
         Row: {
           created_at: string;
@@ -142,6 +262,7 @@ export type Database = {
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
     Enums: {
+      access_level: "none" | "audit" | "view" | "edit" | "admin" | "full";
       portal: "ADMIN" | "STAFF" | "CLIENT";
     };
     CompositeTypes: { [_ in never]: never };
