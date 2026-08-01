@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import {
   BookText,
   Boxes,
@@ -29,8 +31,9 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
+import { filterSections, type Grants } from "@/lib/nav-filter";
 
-const sections: NavSection[] = [
+export const adminSections: NavSection[] = [
   {
     items: [
       { href: "/admin", label: "Executive Analytics", icon: LayoutDashboard, exact: true },
@@ -62,9 +65,11 @@ const sections: NavSection[] = [
           },
         ],
       },
-      { href: "/admin/clients", label: "Client Directory", icon: Users },
+      { href: "/admin/clients", label: "Client Directory", icon: Users, moduleId: "crm-database", minimum: "view" },
       {
         href: "/admin/staff",
+        moduleId: "staff-hr-records",
+        minimum: "view",
         label: "Staff & Roles",
         icon: SquareUser,
         children: [
@@ -72,12 +77,14 @@ const sections: NavSection[] = [
           { href: "/admin/staff/allocation", label: "Resource Allocation", icon: CalendarRange },
         ],
       },
-      { href: "/admin/services", label: "Services Catalog", icon: Boxes },
+      { href: "/admin/services", label: "Services Catalog", icon: Boxes, moduleId: "service-management", minimum: "view" },
       { href: "/admin/projects", label: "Project Templates", icon: Layers },
-      { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, badge: 4 },
+      { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, badge: 4, moduleId: "financial-systems", minimum: "view" },
       { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote, badge: 2 },
       {
         href: "/admin/content/blog",
+        moduleId: "content-publishing",
+        minimum: "view",
         label: "CMS & Content",
         icon: FileSignature,
         // The landing-page engine is a new content surface; the rest already
@@ -92,7 +99,7 @@ const sections: NavSection[] = [
       // Points at the security stub rather than /admin/audit-logs: the
       // Operations section already owns that route, and two nav items sharing a
       // destination means two of them highlight as active at once.
-      { href: "/admin/settings/security", label: "Security & Audit Logs", icon: ShieldCheck },
+      { href: "/admin/settings/security", label: "Security & Audit Logs", icon: ShieldCheck, moduleId: "security-policies", minimum: "audit" },
       { href: "/admin/settings", label: "System Settings", icon: Settings, exact: true },
     ],
   },
@@ -100,9 +107,9 @@ const sections: NavSection[] = [
     // Operations items contributed by the SEO / System Core designs.
     label: "Operations",
     items: [
-      { href: "/admin/access-control", label: "Access Control", icon: ShieldCheck },
-      { href: "/admin/keys", label: "Key Management", icon: KeyRound },
-      { href: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText },
+      { href: "/admin/access-control", label: "Access Control", icon: ShieldCheck, moduleId: "security-policies", minimum: "audit" },
+      { href: "/admin/keys", label: "Key Management", icon: KeyRound, moduleId: "security-policies", minimum: "admin" },
+      { href: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText, moduleId: "security-policies", minimum: "audit" },
       { href: "/admin/traffic", label: "Traffic Control", icon: SlidersHorizontal },
       { href: "/admin/nodes", label: "Nodes", icon: Server },
     ],
@@ -143,11 +150,24 @@ function SystemBadges({ load = 24, redis = 98 }: { load?: number; redis?: number
   );
 }
 
-export function AdminSidebar({ user = defaultUser }: { user?: SidebarUser }) {
+export function AdminSidebar({
+  user = defaultUser,
+  grants,
+}: {
+  user?: SidebarUser;
+  /** Plain `moduleId -> level` map. Filtering happens here, not on the server:
+      nav icons are React components and cannot cross the RSC boundary. */
+  grants?: Grants;
+}) {
+  const visible = React.useMemo(
+    () => filterSections(adminSections, grants ?? {}),
+    [grants]
+  );
+
   return (
     <Sidebar
       sub="Command Center"
-      sections={sections}
+      sections={visible}
       user={user}
       header={<SystemBadges />}
       footer={

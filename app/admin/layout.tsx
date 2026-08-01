@@ -1,16 +1,26 @@
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { getSidebarUser } from "@/lib/supabase/sidebar-user";
+import { getMyProfile } from "@/lib/supabase/profile-actions";
+import { getGrantsForRole } from "@/lib/supabase/nav-permissions";
 import { AdminCommandBar } from "@/components/layout/AdminCommandBar";
 import { SystemStatusDock } from "@/components/admin/SystemStatusDock";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await getSidebarUser("Administrator");
+  const [user, profile] = await Promise.all([
+    getSidebarUser("Administrator"),
+    getMyProfile(),
+  ]);
+
+  // Only show what this role can actually open — the guard would bounce the
+  // rest, and a menu of dead ends is worse than a shorter menu. Grants cross
+  // as plain data; the sidebar filters, because nav icons are components.
+  const grants = await getGrantsForRole(profile?.role_id ?? null);
 
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-canvas">
-        <AdminSidebar user={user} />
+        <AdminSidebar user={user} grants={grants} />
 
         {/* pt-14 clears the fixed mobile nav bar the sidebar renders below `lg`. */}
         <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">

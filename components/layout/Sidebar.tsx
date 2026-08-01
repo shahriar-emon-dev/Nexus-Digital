@@ -7,6 +7,7 @@ import { ChevronDown, ChevronsLeft, LogOut, Menu, type LucideIcon } from "lucide
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage, initials } from "@/components/ui/avatar";
+import type { AccessLevel } from "@/lib/access-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, Sheet } from "@/components/ui/dialog";
@@ -28,6 +29,16 @@ export type NavItem = {
    * items without lengthening the top level — the parent still navigates.
    */
   children?: NavItem[];
+  /**
+   * Permission module governing this destination, and the grant it needs.
+   *
+   * Set these and the item is hidden from anyone whose role cannot reach it.
+   * An item without them is visible to everyone in the portal — the default is
+   * "show", so forgetting the annotation can never hide a menu item by
+   * accident, only leave one visible.
+   */
+  moduleId?: string;
+  minimum?: AccessLevel;
 };
 
 export type NavSection = { label?: string; items: NavItem[] };
