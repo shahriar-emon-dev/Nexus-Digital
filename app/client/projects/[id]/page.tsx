@@ -3,12 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Settings2, Share2 } from "lucide-react";
 
-import {
-  milestonesFor,
-  portalProjects,
-  projectById,
-  projectStatusTone,
-} from "@/lib/client-portal";
+import { projectStatusTone } from "@/lib/client-portal";
+import { getProjectBySlug, listMilestones, listTasks } from "@/lib/supabase/project-queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
@@ -18,13 +14,10 @@ import { ProjectTabs } from "./ProjectTabs";
 
 type Params = { params: { id: string } };
 
-/** Prerenders every project the portal knows about. */
-export function generateStaticParams() {
-  return portalProjects.map((project) => ({ id: project.id }));
-}
-
-export function generateMetadata({ params }: Params): Metadata {
-  const project = projectById(params.id);
+// No generateStaticParams: projects are per-tenant and RLS-scoped, so there is
+// no build-time set to prerender. Every request resolves the caller's own.
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const project = await getProjectBySlug(params.id);
   return { title: project ? project.name : "Project not found" };
 }
 
@@ -34,13 +27,19 @@ const longDate = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-export default function ClientProjectDetailPage({ params }: Params) {
-  const project = projectById(params.id);
+export default async function ClientProjectDetailPage({ params }: Params) {
+  // RLS makes an out-of-tenant slug indistinguishable from a missing one, which
+  // is the correct answer: a client must not be able to probe for the existence
+  // of another organisation's project.
+  const project = await getProjectBySlug(params.id);
   if (!project) notFound();
 
   // The header quotes the final milestone's date when there is one, so it can
   // never disagree with the bottom of the roadmap.
-  const milestones = milestonesFor(project.id);
+  const [milestones, tasks] = await Promise.all([
+    listMilestones(params.id),
+    listTasks(params.id),
+  ]);
   const completion = milestones.at(-1)?.date ?? project.targetEnd;
   const live = project.status === "Active";
 
@@ -114,7 +113,7 @@ export default function ClientProjectDetailPage({ params }: Params) {
             overlay, so it can never sit on top of the board. */}
         <div className="grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
-            <ProjectTabs projectId={project.id} />
+            <ProjectTabs projectId={project.id} milestones={milestones} tasks={tasks} />
           </div>
 
           <aside aria-label="Project pulse">

@@ -1,5 +1,5 @@
 import { createClient } from "./server";
-import type { PortalProject, ProjectMilestone } from "@/lib/client-portal";
+import type { BoardTask, PortalProject, ProjectMilestone } from "@/lib/client-portal";
 
 /**
  * Project reads, mapped into the shape the existing screens already render.
@@ -158,4 +158,43 @@ export function portfolioStatsFrom(projects: PortalProject[]) {
     budgetRemaining: budgetTotal - budgetSpent,
     avgEfficiency: avgProgress,
   };
+}
+
+
+/* ------------------------------------------------------------- board ---- */
+
+/** Board cards for a project, ordered as the columns render them. */
+export async function listTasks(slug: string): Promise<BoardTask[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("project_tasks")
+    .select(
+      "id, column_id, title, description, discipline, assignee_id," +
+        " awaiting_approval, priority, projects!inner(slug)"
+    )
+    .eq("projects.slug", slug)
+    .order("display_order");
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    column_id: BoardTask["column"];
+    title: string;
+    description: string;
+    discipline: string;
+    assignee_id: string | null;
+    awaiting_approval: boolean;
+    priority: boolean;
+  }>).map((t) => ({
+    id: t.id,
+    projectId: slug,
+    column: t.column_id,
+    title: t.title,
+    description: t.description,
+    discipline: t.discipline,
+    // Assignee is a profile id; the avatar lookup still resolves against the
+    // team module until staffing migrates, so this stays a plain string.
+    assigneeId: t.assignee_id ?? "",
+    awaitingApproval: t.awaiting_approval,
+    priority: t.priority,
+  }));
 }

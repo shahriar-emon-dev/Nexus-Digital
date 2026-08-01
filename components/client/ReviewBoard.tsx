@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { boardColumns, boardFor, type BoardColumn, type BoardTask } from "@/lib/client-portal";
+import { boardColumns, type BoardColumn, type BoardTask } from "@/lib/client-portal";
 import { deliverableForTask } from "@/lib/deliverables";
 import { leadership } from "@/lib/team";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -49,8 +49,14 @@ const memberById = (id: string) => leadership.find((m) => m.id === id);
  * Column counts are derived from the tasks. The source markup hardcoded
  * "14" above two rendered cards.
  */
-export function ReviewBoard({ projectId }: { projectId: string }) {
-  const tasks = boardFor(projectId);
+export function ReviewBoard({
+  projectId,
+  tasks,
+}: {
+  projectId: string;
+  /** Supplied by the server from the database; RLS has already scoped it. */
+  tasks: BoardTask[];
+}) {
   const [signedOff, setSignedOff] = React.useState<string[]>([]);
 
   // `open` is tracked separately from the task so the dialog keeps its content

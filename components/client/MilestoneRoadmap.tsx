@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { milestonesFor, type MilestoneStatus, type ProjectMilestone } from "@/lib/client-portal";
+import { type MilestoneStatus, type ProjectMilestone } from "@/lib/client-portal";
 import { leadership } from "@/lib/team";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,8 +53,12 @@ const datePrefix: Record<MilestoneStatus, string> = {
  * The `<ol>` is deliberate: this is an ordered sequence, and screen readers
  * should announce the position in it.
  */
-export function MilestoneRoadmap({ projectId }: { projectId: string }) {
-  const milestones = milestonesFor(projectId);
+export function MilestoneRoadmap({
+  milestones,
+}: {
+  /** Supplied by the server from the database; RLS has already scoped it. */
+  milestones: ProjectMilestone[];
+}) {
 
   if (milestones.length === 0) {
     return (

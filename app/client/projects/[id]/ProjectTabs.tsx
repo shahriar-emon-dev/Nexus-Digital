@@ -6,6 +6,7 @@ import { FolderOpen, KanbanSquare, ReceiptText, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MilestoneRoadmap } from "@/components/client/MilestoneRoadmap";
+import type { BoardTask, ProjectMilestone } from "@/lib/client-portal";
 import { ReviewBoard } from "@/components/client/ReviewBoard";
 
 /**
@@ -16,7 +17,15 @@ import { ReviewBoard } from "@/components/client/ReviewBoard";
  * panels are reachable without a pointer. The strip scrolls horizontally on
  * narrow screens instead of wrapping into two rows.
  */
-export function ProjectTabs({ projectId }: { projectId: string }) {
+export function ProjectTabs({
+  projectId,
+  milestones,
+  tasks,
+}: {
+  projectId: string;
+  milestones: ProjectMilestone[];
+  tasks: BoardTask[];
+}) {
   return (
     <Tabs defaultValue="roadmap">
       <TabsList variant="underline" className="scrollbar-none overflow-x-auto">
@@ -39,11 +48,11 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
       </TabsList>
 
       <TabsContent value="roadmap" className="mt-10">
-        <MilestoneRoadmap projectId={projectId} />
+        <MilestoneRoadmap milestones={milestones} />
       </TabsContent>
 
       <TabsContent value="board" className="mt-10">
-        <ReviewBoard projectId={projectId} />
+        <ReviewBoard projectId={projectId} tasks={tasks} />
       </TabsContent>
 
       {/* No design was supplied for these two, so they say so plainly and point
