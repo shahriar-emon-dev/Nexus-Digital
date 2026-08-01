@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import {
+  Image as ImageIcon,
   BookText,
   Boxes,
   CalendarRange,
@@ -94,6 +95,7 @@ export const adminSections: NavSection[] = [
           { href: "/admin/content/pages", label: "Landing Pages", icon: LayoutTemplate },
           { href: "/admin/content/case-studies", label: "Case Studies", icon: Layers },
           { href: "/admin/content/homepage", label: "Homepage", icon: LayoutDashboard },
+          { href: "/admin/media", label: "Media Library", icon: ImageIcon },
         ],
       },
       // Points at the security stub rather than /admin/audit-logs: the

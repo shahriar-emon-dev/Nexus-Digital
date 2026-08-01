@@ -84,6 +84,33 @@ export type Database = {
           },
         ];
       };
+      media_assets: {
+        Row: {
+          alt_text: string | null; caption: string | null; created_at: string;
+          filename: string; folder: string; height: number | null; id: string;
+          kind: Database["public"]["Enums"]["media_kind"]; mime_type: string;
+          public_url: string; size_bytes: number; storage_path: string;
+          title: string | null; updated_at: string; uploaded_by: string | null;
+          width: number | null;
+        };
+        Insert: {
+          alt_text?: string | null; caption?: string | null; created_at?: string;
+          filename: string; folder?: string; height?: number | null; id?: string;
+          kind?: Database["public"]["Enums"]["media_kind"]; mime_type: string;
+          public_url: string; size_bytes?: number; storage_path: string;
+          title?: string | null; updated_at?: string; uploaded_by?: string | null;
+          width?: number | null;
+        };
+        Update: {
+          alt_text?: string | null; caption?: string | null; created_at?: string;
+          filename?: string; folder?: string; height?: number | null; id?: string;
+          kind?: Database["public"]["Enums"]["media_kind"]; mime_type?: string;
+          public_url?: string; size_bytes?: number; storage_path?: string;
+          title?: string | null; updated_at?: string; uploaded_by?: string | null;
+          width?: number | null;
+        };
+        Relationships: [];
+      };
       organizations: {
         Row: {
           created_at: string;
@@ -349,6 +376,7 @@ export type Database = {
     Enums: {
       access_level: "none" | "audit" | "view" | "edit" | "admin" | "full";
       board_column: "backlog" | "in-progress" | "review" | "done";
+      media_kind: "image" | "video" | "document" | "logo";
       milestone_status: "done" | "active" | "upcoming" | "final";
       project_status: "Active" | "On Hold" | "Completed" | "Archived";
       portal: "ADMIN" | "STAFF" | "CLIENT";

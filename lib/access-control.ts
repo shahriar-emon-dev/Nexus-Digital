@@ -125,6 +125,7 @@ export const routeModuleMap: { prefix: string; moduleId: string; minimum: Access
   { prefix: "/admin/staff", moduleId: "staff-hr-records", minimum: "view" },
   { prefix: "/admin/services", moduleId: "service-management", minimum: "view" },
   { prefix: "/admin/content", moduleId: "content-publishing", minimum: "view" },
+  { prefix: "/admin/media", moduleId: "content-publishing", minimum: "view" },
 ];
 
 /** The rule governing a path, or null when the route is ungated. */
