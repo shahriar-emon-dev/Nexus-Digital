@@ -171,6 +171,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      pages: {
+        Row: {
+          created_at: string; created_by: string | null; id: string;
+          internal_name: string; nav_in_main: boolean; nav_label: string | null;
+          nav_parent: string | null; page_type: string; published_at: string | null;
+          published_version_id: string | null; scheduled_at: string | null;
+          slug: string; status: Database["public"]["Enums"]["page_status"];
+          title: string; updated_at: string; updated_by: string | null;
+        };
+        Insert: {
+          created_at?: string; created_by?: string | null; id?: string;
+          internal_name?: string; nav_in_main?: boolean; nav_label?: string | null;
+          nav_parent?: string | null; page_type?: string; published_at?: string | null;
+          published_version_id?: string | null; scheduled_at?: string | null;
+          slug: string; status?: Database["public"]["Enums"]["page_status"];
+          title: string; updated_at?: string; updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string; created_by?: string | null; id?: string;
+          internal_name?: string; nav_in_main?: boolean; nav_label?: string | null;
+          nav_parent?: string | null; page_type?: string; published_at?: string | null;
+          published_version_id?: string | null; scheduled_at?: string | null;
+          slug?: string; status?: Database["public"]["Enums"]["page_status"];
+          title?: string; updated_at?: string; updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      page_versions: {
+        Row: {
+          blocks: Json; created_at: string; created_by: string | null; id: string;
+          is_draft: boolean; page_id: string; seo: Json; updated_at: string;
+          version_number: number;
+        };
+        Insert: {
+          blocks?: Json; created_at?: string; created_by?: string | null; id?: string;
+          is_draft?: boolean; page_id: string; seo?: Json; updated_at?: string;
+          version_number: number;
+        };
+        Update: {
+          blocks?: Json; created_at?: string; created_by?: string | null; id?: string;
+          is_draft?: boolean; page_id?: string; seo?: Json; updated_at?: string;
+          version_number?: number;
+        };
+        Relationships: [];
+      };
       permission_modules: {
         Row: {
           created_at: string;
@@ -372,11 +417,15 @@ export type Database = {
         Relationships: [];
       };
     };
-    Functions: { [_ in never]: never };
+    Functions: {
+      publish_page: { Args: { p_page_id: string }; Returns: string };
+      unpublish_page: { Args: { p_page_id: string }; Returns: undefined };
+    };
     Enums: {
       access_level: "none" | "audit" | "view" | "edit" | "admin" | "full";
       board_column: "backlog" | "in-progress" | "review" | "done";
       media_kind: "image" | "video" | "document" | "logo";
+      page_status: "draft" | "published" | "scheduled" | "unpublished" | "archived";
       milestone_status: "done" | "active" | "upcoming" | "final";
       project_status: "Active" | "On Hold" | "Completed" | "Archived";
       portal: "ADMIN" | "STAFF" | "CLIENT";
