@@ -219,6 +219,11 @@ export async function setHomepage(pageId: string | null): Promise<NavResult> {
 
   if (error) return { error: msg(error.message, "edit") };
   revalidatePath("/", "layout");
+  // The admin homepage screen reads this setting to decide whether to jump
+  // straight to the builder, so it has to be invalidated too — revalidating
+  // only the public tree left that screen showing a stale empty state.
+  revalidatePath("/admin/content/homepage");
+  revalidatePath("/admin/content/navigation");
   return { ok: true };
 }
 

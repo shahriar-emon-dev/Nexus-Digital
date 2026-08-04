@@ -38,7 +38,14 @@ const socials = [
   { label: "GitHub", href: "https://github.com/nexus-agency" },
 ];
 
-export function PublicFooter() {
+/**
+ * CMS items are appended to the footer's own columns, never substituted for
+ * them, for the same reason as the header: the built-in links are the
+ * product's information architecture and must always resolve.
+ */
+export type CmsNavItem = { id: string; label: string; href: string; openInNewTab?: boolean };
+
+export function PublicFooter({ cmsItems = [] }: { cmsItems?: CmsNavItem[] }) {
   return (
     <footer className="relative w-full border-t border-line bg-surface-sunken">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-20 md:grid-cols-4 md:px-10">
@@ -107,6 +114,28 @@ export function PublicFooter() {
           </div>
         </div>
       </div>
+      {cmsItems.length > 0 && (
+        <nav
+          aria-label="More"
+          className="mx-auto w-full max-w-6xl border-t border-line-subtle px-5 py-6 lg:px-8"
+        >
+          <ul className="flex flex-wrap gap-x-6 gap-y-2">
+            {cmsItems.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={item.href}
+                  target={item.openInNewTab ? "_blank" : undefined}
+                  rel={item.openInNewTab ? "noreferrer noopener" : undefined}
+                  className="text-sm text-ink-tertiary transition-colors hover:text-brand"
+                >
+                  {item.label}
+                  {item.openInNewTab && <span className="sr-only"> (opens in a new tab)</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </footer>
   );
 }

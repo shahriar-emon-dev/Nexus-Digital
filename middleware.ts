@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { roleCanAccessRoute } from "@/lib/access-control";
+import { grantClearsRoute } from "@/lib/access-control";
 import { updateSession } from "@/lib/supabase/middleware";
 import type { Portal } from "@/lib/supabase/types";
 
@@ -69,7 +69,10 @@ export async function middleware(request: NextRequest) {
 
   // Right portal, but the role's grant on the module governing this route is
   // below the minimum the route requires.
-  if (required === "ADMIN" && user.roleId && !roleCanAccessRoute(user.roleId, pathname)) {
+  // The grant is resolved in updateSession, which reads role_grants for the
+  // one module governing this path — so authorisation compares the database
+  // enum, not a copy of the matrix held in application code.
+  if (required === "ADMIN" && !grantClearsRoute(user.grant, pathname)) {
     const url = new URL("/admin", request.url);
     url.searchParams.set("denied", pathname);
     return NextResponse.redirect(url);

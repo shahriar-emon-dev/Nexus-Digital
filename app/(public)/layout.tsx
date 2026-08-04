@@ -7,7 +7,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   // Only top-level items: the header renders one row, and a CMS-managed
   // dropdown would collide with the services mega-menu.
-  const menu = await getPublicMenu("header");
+  const [menu, footerMenu] = await Promise.all([
+    getPublicMenu("header"),
+    getPublicMenu("footer"),
+  ]);
   const headerItems = menu
     .filter((i) => !i.parent_id)
     .map((i) => ({
@@ -16,6 +19,13 @@ export default async function PublicLayout({ children }: { children: React.React
       href: i.href,
       openInNewTab: i.open_in_new_tab,
     }));
+
+  const footerItems = footerMenu.map((i) => ({
+    id: i.id,
+    label: i.label,
+    href: i.href,
+    openInNewTab: i.open_in_new_tab,
+  }));
 
   return (
     <TooltipProvider>
@@ -46,7 +56,7 @@ export default async function PublicLayout({ children }: { children: React.React
         {children}
       </main>
 
-      <PublicFooter />
+      <PublicFooter cmsItems={footerItems} />
     </TooltipProvider>
   );
 }
