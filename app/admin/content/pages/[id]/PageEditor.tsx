@@ -84,6 +84,67 @@ const FIELDS: Record<PageBlock["kind"], { key: string; label: string; long?: boo
   ],
 };
 
+/**
+ * Repeatable content. Each entry describes the fields ONE item exposes, so the
+ * repeater below serves every block kind without a bespoke editor per kind.
+ * `nested` declares a second level — a pricing package owns its feature list.
+ */
+type ItemField = { key: string; label: string; long?: boolean; bool?: boolean };
+
+const ITEM_SCHEMA: Partial<
+  Record<
+    PageBlock["kind"],
+    {
+      singular: string;
+      fields: ItemField[];
+      nested?: { key: string; singular: string; fields: ItemField[] };
+    }
+  >
+> = {
+  featureGrid: {
+    singular: "feature",
+    fields: [
+      { key: "title", label: "Title" },
+      { key: "body", label: "Description", long: true },
+    ],
+  },
+  pricing: {
+    singular: "package",
+    fields: [
+      { key: "name", label: "Package name" },
+      { key: "price", label: "Price" },
+      { key: "interval", label: "Billing interval" },
+      { key: "body", label: "Description", long: true },
+      { key: "badge", label: "Badge" },
+      { key: "ctaLabel", label: "Button label" },
+      { key: "ctaHref", label: "Button URL" },
+      { key: "featured", label: "Highlight this package", bool: true },
+    ],
+    nested: {
+      key: "features",
+      singular: "feature",
+      fields: [{ key: "label", label: "Feature" }],
+    },
+  },
+  faq: {
+    singular: "question",
+    fields: [
+      { key: "question", label: "Question" },
+      { key: "answer", label: "Answer", long: true },
+    ],
+  },
+  testimonials: {
+    singular: "testimonial",
+    fields: [
+      { key: "quote", label: "Quote", long: true },
+      { key: "name", label: "Name" },
+      { key: "role", label: "Role and company" },
+    ],
+  },
+};
+
+type Item = Record<string, unknown>;
+
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "failed";
 
 export function PageEditor({ draft }: { draft: PageDraft }) {
@@ -427,17 +488,236 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
                   </div>
                 ))}
 
-                {FIELDS[current.kind].length <= 1 && (
-                  <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-xs text-ink-tertiary">
-                    Repeatable items for this block (features, plans, questions, quotes)
-                    are edited in the next phase. The heading above is live now.
-                  </p>
+                {ITEM_SCHEMA[current.kind] && (
+                  <Repeater
+                    schema={ITEM_SCHEMA[current.kind]!}
+                    items={(current.data.items as Item[]) ?? []}
+                    onChange={(items) =>
+                      setBlocks((bs) =>
+                        bs.map((b) =>
+                          b.id === current.id ? { ...b, data: { ...b.data, items } } : b
+                        )
+                      )
+                    }
+                  />
                 )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Add, edit, duplicate, delete and reorder the items inside a block, plus one
+ * level of nesting for pricing features. Every change flows through `onChange`
+ * into the block tree, so autosave and publish need no special handling.
+ */
+function Repeater({
+  schema,
+  items,
+  onChange,
+}: {
+  schema: NonNullable<(typeof ITEM_SCHEMA)[PageBlock["kind"]]>;
+  items: Item[];
+  onChange: (items: Item[]) => void;
+}) {
+  const [open, setOpen] = React.useState<number | null>(items.length ? 0 : null);
+
+  const set = (i: number, key: string, value: unknown) =>
+    onChange(items.map((it, j) => (j === i ? { ...it, [key]: value } : it)));
+
+  const move = (i: number, delta: number) => {
+    const j = i + delta;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+    setOpen(j);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-line-subtle pt-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold tracking-wide text-ink-tertiary uppercase">
+          {items.length} {schema.singular}
+          {items.length === 1 ? "" : "s"}
+        </h3>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          onClick={() => {
+            onChange([...items, {}]);
+            setOpen(items.length);
+          }}
+        >
+          <Plus />
+          Add {schema.singular}
+        </Button>
+      </div>
+
+      {items.length === 0 && (
+        <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-xs text-ink-tertiary">
+          No {schema.singular}s yet. This block renders nothing until you add one.
+        </p>
+      )}
+
+      <ul className="flex flex-col gap-2">
+        {items.map((item, i) => {
+          const expanded = open === i;
+          const label =
+            String(item.name ?? item.title ?? item.question ?? item.quote ?? "") ||
+            `Untitled ${schema.singular}`;
+          return (
+            <li key={i} className="rounded-lg border border-line">
+              <div className="flex items-center gap-1 px-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setOpen(expanded ? null : i)}
+                  aria-expanded={expanded}
+                  className="min-w-0 flex-1 truncate text-left text-sm text-ink"
+                >
+                  {i + 1}. {label}
+                </button>
+                <IconBtn label="Move up" onClick={() => move(i, -1)} disabled={i === 0}>
+                  <ArrowUp />
+                </IconBtn>
+                <IconBtn
+                  label="Move down"
+                  onClick={() => move(i, 1)}
+                  disabled={i === items.length - 1}
+                >
+                  <ArrowDown />
+                </IconBtn>
+                <IconBtn
+                  label="Duplicate"
+                  onClick={() => {
+                    const next = [...items];
+                    next.splice(i + 1, 0, { ...item });
+                    onChange(next);
+                    setOpen(i + 1);
+                  }}
+                >
+                  <Copy />
+                </IconBtn>
+                <IconBtn
+                  label="Delete"
+                  danger
+                  onClick={() => {
+                    onChange(items.filter((_, j) => j !== i));
+                    setOpen(null);
+                  }}
+                >
+                  <Trash2 />
+                </IconBtn>
+              </div>
+
+              {expanded && (
+                <div className="flex flex-col gap-3 border-t border-line-subtle px-3 py-3">
+                  {schema.fields.map((f) =>
+                    f.bool ? (
+                      <label key={f.key} className="flex items-center gap-2 text-sm text-ink">
+                        <input
+                          type="checkbox"
+                          checked={item[f.key] === true}
+                          onChange={(e) => set(i, f.key, e.target.checked)}
+                          className="size-4"
+                        />
+                        {f.label}
+                      </label>
+                    ) : (
+                      <div key={f.key} className="flex flex-col gap-1">
+                        <Label htmlFor={`item-${i}-${f.key}`}>{f.label}</Label>
+                        {f.long ? (
+                          <Textarea
+                            id={`item-${i}-${f.key}`}
+                            rows={3}
+                            value={String(item[f.key] ?? "")}
+                            onChange={(e) => set(i, f.key, e.target.value)}
+                          />
+                        ) : (
+                          <Input
+                            id={`item-${i}-${f.key}`}
+                            value={String(item[f.key] ?? "")}
+                            onChange={(e) => set(i, f.key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )
+                  )}
+
+                  {schema.nested && (
+                    <NestedList
+                      singular={schema.nested.singular}
+                      fields={schema.nested.fields}
+                      values={(item[schema.nested.key] as Item[]) ?? []}
+                      onChange={(v) => set(i, schema.nested!.key, v)}
+                    />
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** The second level — a pricing package's feature list. */
+function NestedList({
+  singular,
+  fields,
+  values,
+  onChange,
+}: {
+  singular: string;
+  fields: ItemField[];
+  values: Item[];
+  onChange: (v: Item[]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken/60 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold tracking-wide text-ink-tertiary uppercase">
+          {values.length} {singular}
+          {values.length === 1 ? "" : "s"}
+        </span>
+        <Button type="button" variant="ghost" size="xs" onClick={() => onChange([...values, {}])}>
+          <Plus />
+          Add
+        </Button>
+      </div>
+      {values.map((v, k) => (
+        <div key={k} className="flex items-center gap-1">
+          <Input
+            aria-label={`${singular} ${k + 1}`}
+            value={String(v[fields[0].key] ?? "")}
+            onChange={(e) =>
+              onChange(
+                values.map((x, j) => (j === k ? { ...x, [fields[0].key]: e.target.value } : x))
+              )
+            }
+          />
+          <IconBtn
+            label="Move up"
+            disabled={k === 0}
+            onClick={() => {
+              const next = [...values];
+              [next[k - 1], next[k]] = [next[k], next[k - 1]];
+              onChange(next);
+            }}
+          >
+            <ArrowUp />
+          </IconBtn>
+          <IconBtn label="Delete" danger onClick={() => onChange(values.filter((_, j) => j !== k))}>
+            <Trash2 />
+          </IconBtn>
+        </div>
+      ))}
     </div>
   );
 }
