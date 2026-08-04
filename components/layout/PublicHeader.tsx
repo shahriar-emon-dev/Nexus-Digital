@@ -57,7 +57,17 @@ const links = [
   { href: "/blog", label: "Insights" },
 ];
 
-export function PublicHeader() {
+/**
+ * CMS-managed entries are APPENDED to the links above, never substituted for
+ * them. The list above is the product's own information architecture, owned by
+ * developers and guaranteed to resolve; a menu built in the admin adds to it.
+ *
+ * That ordering also means assigning a header menu can never blank the site,
+ * and removing one cannot take Services or Pricing down with it.
+ */
+export type CmsNavItem = { id: string; label: string; href: string; openInNewTab?: boolean };
+
+export function PublicHeader({ cmsItems = [] }: { cmsItems?: CmsNavItem[] }) {
   const pathname = usePathname();
   const servicesActive = pathname.startsWith("/services");
 
@@ -145,6 +155,25 @@ export function PublicHeader() {
               </li>
             );
           })}
+
+          {cmsItems.map((item) => (
+            <li key={item.id}>
+              <Link
+                href={item.href}
+                target={item.openInNewTab ? "_blank" : undefined}
+                rel={item.openInNewTab ? "noreferrer noopener" : undefined}
+                aria-current={pathname === item.href ? "page" : undefined}
+                className={cn(
+                  "inline-block transition-colors duration-300 hover:text-brand",
+                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                  pathname === item.href && "text-brand"
+                )}
+              >
+                {item.label}
+                {item.openInNewTab && <span className="sr-only"> (opens in a new tab)</span>}
+              </Link>
+            </li>
+          ))}
         </ul>
 
         <div className="flex items-center gap-4">
@@ -188,6 +217,17 @@ export function PublicHeader() {
                     className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink-secondary hover:bg-surface-sunken hover:text-ink"
                   >
                     {link.label}
+                  </Link>
+                ))}
+                {cmsItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    target={item.openInNewTab ? "_blank" : undefined}
+                    rel={item.openInNewTab ? "noreferrer noopener" : undefined}
+                    className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink-secondary hover:bg-surface-sunken hover:text-ink"
+                  >
+                    {item.label}
                   </Link>
                 ))}
               </nav>

@@ -1,9 +1,22 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { getPublicMenu } from "@/lib/supabase/nav-actions";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicBreadcrumb } from "@/components/layout/PublicBreadcrumb";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  // Only top-level items: the header renders one row, and a CMS-managed
+  // dropdown would collide with the services mega-menu.
+  const menu = await getPublicMenu("header");
+  const headerItems = menu
+    .filter((i) => !i.parent_id)
+    .map((i) => ({
+      id: i.id,
+      label: i.label,
+      href: i.href,
+      openInNewTab: i.open_in_new_tab,
+    }));
+
   return (
     <TooltipProvider>
       <a
@@ -13,7 +26,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         Skip to content
       </a>
 
-      <PublicHeader />
+      <PublicHeader cmsItems={headerItems} />
 
       {/* pt-20 clears the fixed header. `overflow-x-clip` rather than
           `overflow-hidden`: clip contains the ambient blobs without turning
