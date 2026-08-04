@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import {
+  Link2,
   Image as ImageIcon,
   BookText,
   Boxes,
@@ -96,6 +97,7 @@ export const adminSections: NavSection[] = [
           { href: "/admin/content/case-studies", label: "Case Studies", icon: Layers },
           { href: "/admin/content/homepage", label: "Homepage", icon: LayoutDashboard },
           { href: "/admin/media", label: "Media Library", icon: ImageIcon },
+          { href: "/admin/content/navigation", label: "Navigation & Menus", icon: Link2 },
         ],
       },
       // Points at the security stub rather than /admin/audit-logs: the

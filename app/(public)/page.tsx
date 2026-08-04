@@ -1,6 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
+
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { getSiteSettings } from "@/lib/supabase/nav-actions";
+import { getPublishedPage } from "@/lib/supabase/page-actions";
+import { createClient } from "@/lib/supabase/server";
 import {
   ArrowRight,
   ChevronRight,
@@ -77,7 +82,26 @@ const stack = [
   { icon: ShieldCheck, name: "Shield" },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  // An administrator can nominate any published page as the site homepage. When
+  // one is set it answers "/" through the same renderer the CMS uses; otherwise
+  // the built-in marketing homepage below is served, so the site is never blank.
+  const settings = await getSiteSettings();
+  if (settings.homepage_page_id) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("pages")
+      .select("slug")
+      .eq("id", settings.homepage_page_id)
+      .eq("status", "published")
+      .maybeSingle();
+
+    if (data?.slug) {
+      const page = await getPublishedPage(data.slug as string);
+      if (page) return <BlockRenderer blocks={page.blocks} />;
+    }
+  }
+
   return (
     <>
       <div className="noise-field" aria-hidden />

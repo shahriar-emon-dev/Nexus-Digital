@@ -171,6 +171,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      menus: {
+        Row: { created_at: string; id: string; location: Database["public"]["Enums"]["menu_location"] | null; name: string; updated_at: string };
+        Insert: { created_at?: string; id?: string; location?: Database["public"]["Enums"]["menu_location"] | null; name: string; updated_at?: string };
+        Update: { created_at?: string; id?: string; location?: Database["public"]["Enums"]["menu_location"] | null; name?: string; updated_at?: string };
+        Relationships: [];
+      };
+      menu_items: {
+        Row: { badge: string | null; created_at: string; external_url: string | null; id: string; is_visible: boolean; item_type: Database["public"]["Enums"]["menu_item_type"]; label: string; menu_id: string; open_in_new_tab: boolean; page_id: string | null; parent_id: string | null; position: number; updated_at: string };
+        Insert: { badge?: string | null; created_at?: string; external_url?: string | null; id?: string; is_visible?: boolean; item_type?: Database["public"]["Enums"]["menu_item_type"]; label: string; menu_id: string; open_in_new_tab?: boolean; page_id?: string | null; parent_id?: string | null; position?: number; updated_at?: string };
+        Update: { badge?: string | null; created_at?: string; external_url?: string | null; id?: string; is_visible?: boolean; item_type?: Database["public"]["Enums"]["menu_item_type"]; label?: string; menu_id?: string; open_in_new_tab?: boolean; page_id?: string | null; parent_id?: string | null; position?: number; updated_at?: string };
+        Relationships: [];
+      };
+      site_settings: {
+        Row: { homepage_page_id: string | null; id: boolean; site_name: string; updated_at: string; updated_by: string | null };
+        Insert: { homepage_page_id?: string | null; id?: boolean; site_name?: string; updated_at?: string; updated_by?: string | null };
+        Update: { homepage_page_id?: string | null; id?: boolean; site_name?: string; updated_at?: string; updated_by?: string | null };
+        Relationships: [];
+      };
       page_templates: {
         Row: {
           blocks: Json; category: string; created_at: string; description: string;
@@ -425,6 +443,22 @@ export type Database = {
       };
     };
     Views: {
+      resolved_menu_items: {
+        Row: {
+          badge: string | null;
+          href: string | null;
+          id: string | null;
+          item_type: Database["public"]["Enums"]["menu_item_type"] | null;
+          label: string | null;
+          location: Database["public"]["Enums"]["menu_location"] | null;
+          menu_id: string | null;
+          open_in_new_tab: boolean | null;
+          page_id: string | null;
+          parent_id: string | null;
+          position: number | null;
+        };
+        Relationships: [];
+      };
       project_progress: {
         Row: {
           milestone_done: number | null;
@@ -444,6 +478,8 @@ export type Database = {
       board_column: "backlog" | "in-progress" | "review" | "done";
       media_kind: "image" | "video" | "document" | "logo";
       page_status: "draft" | "published" | "scheduled" | "unpublished" | "archived";
+      menu_location: "header" | "footer" | "mobile" | "utility";
+      menu_item_type: "page" | "external" | "anchor";
       milestone_status: "done" | "active" | "upcoming" | "final";
       project_status: "Active" | "On Hold" | "Completed" | "Archived";
       portal: "ADMIN" | "STAFF" | "CLIENT";
