@@ -171,6 +171,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      page_templates: {
+        Row: {
+          blocks: Json; category: string; created_at: string; description: string;
+          display_order: number; id: string; is_system: boolean; name: string;
+          preview_url: string | null; updated_at: string;
+        };
+        Insert: {
+          blocks?: Json; category?: string; created_at?: string; description?: string;
+          display_order?: number; id: string; is_system?: boolean; name: string;
+          preview_url?: string | null; updated_at?: string;
+        };
+        Update: {
+          blocks?: Json; category?: string; created_at?: string; description?: string;
+          display_order?: number; id?: string; is_system?: boolean; name?: string;
+          preview_url?: string | null; updated_at?: string;
+        };
+        Relationships: [];
+      };
       pages: {
         Row: {
           created_at: string; created_by: string | null; id: string;

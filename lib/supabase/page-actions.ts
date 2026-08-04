@@ -116,6 +116,23 @@ export async function getPageDraft(id: string): Promise<PageDraft | null> {
   };
 }
 
+export type PageTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  blocks: PageBlock[];
+};
+
+export async function listTemplates(): Promise<PageTemplate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("page_templates")
+    .select("id, name, description, category, blocks")
+    .order("display_order");
+  return (data ?? []) as unknown as PageTemplate[];
+}
+
 export async function createPage(formData: FormData): Promise<PageResult> {
   const supabase = await createClient();
   const {
@@ -155,22 +172,53 @@ export async function createPage(formData: FormData): Promise<PageResult> {
     return { error: rlsMessage(error.message, "create") };
   }
 
-  // Every page starts with a hero, because a page without one has no entry point.
-  await supabase.from("page_versions").insert({
+  // Instantiate the chosen template. Its blocks are COPIED, and every block id
+  // is regenerated so two pages built from one template never collide.
+  const templateId = String(formData.get("templateId") ?? "blank");
+  const { data: template } = await supabase
+    .from("page_templates")
+    .select("blocks")
+    .eq("id", templateId)
+    .maybeSingle();
+
+  const seed: PageBlock[] = ((template?.blocks as unknown as PageBlock[]) ?? []).map((b) => ({
+    ...b,
+    id: crypto.randomUUID(),
+  }));
+
+  // A page needs an entry point even if the template row was missing.
+  const blocks: PageBlock[] = seed.length
+    ? seed
+    : [
+        {
+          id: crypto.randomUUID(),
+          kind: "hero",
+          variant: "Default",
+          visible: true,
+          data: { heading: title, body: "" },
+        },
+      ];
+
+  // The first block carries the page title, so the hero is not left saying
+  // "Introducing your product" on a page called something else.
+  if (blocks[0]?.kind === "hero") {
+    blocks[0] = { ...blocks[0], data: { ...blocks[0].data, heading: title } };
+  }
+
+  const { error: versionError } = await supabase.from("page_versions").insert({
     page_id: page.id,
     version_number: 1,
     is_draft: true,
     created_by: user.id,
-    blocks: [
-      {
-        id: crypto.randomUUID(),
-        kind: "hero",
-        variant: "Default",
-        visible: true,
-        data: { heading: title, body: "" },
-      },
-    ] as unknown as Json,
+    blocks: blocks as unknown as Json,
   });
+
+  if (versionError) {
+    // Without a draft the page is unopenable, so do not leave a half-created
+    // record behind pretending to be a page.
+    await supabase.from("pages").delete().eq("id", page.id);
+    return { error: versionError.message };
+  }
 
   revalidatePath("/admin/content/pages");
   return { ok: true, id: page.id as string };
