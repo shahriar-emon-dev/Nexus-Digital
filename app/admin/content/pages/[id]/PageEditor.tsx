@@ -36,6 +36,7 @@ import {
   type PageBlock,
   type PageDraft,
 } from "@/lib/supabase/page-actions";
+import { MediaField } from "@/components/cms/MediaPicker";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,16 +58,24 @@ const BLOCK_CATALOGUE: { kind: PageBlock["kind"]; name: string; required?: boole
   { kind: "cta", name: "Closing call to action" },
 ];
 
-/** Which fields each block kind exposes. Drives the editor with no per-kind UI. */
-const FIELDS: Record<PageBlock["kind"], { key: string; label: string; long?: boolean }[]> = {
+/**
+ * Which fields each block kind exposes. Drives the editor with no per-kind UI.
+ *
+ * `media` renders the library picker instead of a text input. It owns two keys
+ * at once — the URL and the alt text — because choosing an asset supplies both,
+ * and letting them drift apart is how images end up unlabelled.
+ */
+const FIELDS: Record<
+  PageBlock["kind"],
+  { key: string; label: string; long?: boolean; media?: boolean; altKey?: string }[]
+> = {
   hero: [
     { key: "eyebrow", label: "Eyebrow" },
     { key: "heading", label: "Heading" },
     { key: "body", label: "Body", long: true },
     { key: "ctaLabel", label: "Button label" },
     { key: "ctaHref", label: "Button URL" },
-    { key: "imageUrl", label: "Image URL" },
-    { key: "imageAlt", label: "Image alt text" },
+    { key: "imageUrl", label: "Image", media: true, altKey: "imageAlt" },
   ],
   featureGrid: [{ key: "heading", label: "Heading" }],
   pricing: [{ key: "heading", label: "Heading" }],
@@ -468,25 +477,50 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
                   {!current.visible && <Badge variant="warning">Hidden</Badge>}
                 </div>
 
-                {FIELDS[current.kind].map((f) => (
-                  <div key={f.key} className="flex flex-col gap-1.5">
-                    <Label htmlFor={`${current.id}-${f.key}`}>{f.label}</Label>
-                    {f.long ? (
-                      <Textarea
-                        id={`${current.id}-${f.key}`}
-                        rows={4}
-                        value={String(current.data[f.key] ?? "")}
-                        onChange={(e) => patch(current.id, f.key, e.target.value)}
-                      />
-                    ) : (
-                      <Input
-                        id={`${current.id}-${f.key}`}
-                        value={String(current.data[f.key] ?? "")}
-                        onChange={(e) => patch(current.id, f.key, e.target.value)}
-                      />
-                    )}
-                  </div>
-                ))}
+                {FIELDS[current.kind].map((f) =>
+                  f.media ? (
+                    <MediaField
+                      key={f.key}
+                      label={f.label}
+                      value={String(current.data[f.key] ?? "")}
+                      alt={String(current.data[f.altKey ?? "imageAlt"] ?? "")}
+                      onChange={({ url, alt }) =>
+                        setBlocks((bs) =>
+                          bs.map((b) =>
+                            b.id === current.id
+                              ? {
+                                  ...b,
+                                  data: {
+                                    ...b.data,
+                                    [f.key]: url,
+                                    [f.altKey ?? "imageAlt"]: alt,
+                                  },
+                                }
+                              : b
+                          )
+                        )
+                      }
+                    />
+                  ) : (
+                    <div key={f.key} className="flex flex-col gap-1.5">
+                      <Label htmlFor={`${current.id}-${f.key}`}>{f.label}</Label>
+                      {f.long ? (
+                        <Textarea
+                          id={`${current.id}-${f.key}`}
+                          rows={4}
+                          value={String(current.data[f.key] ?? "")}
+                          onChange={(e) => patch(current.id, f.key, e.target.value)}
+                        />
+                      ) : (
+                        <Input
+                          id={`${current.id}-${f.key}`}
+                          value={String(current.data[f.key] ?? "")}
+                          onChange={(e) => patch(current.id, f.key, e.target.value)}
+                        />
+                      )}
+                    </div>
+                  )
+                )}
 
                 {ITEM_SCHEMA[current.kind] && (
                   <Repeater
