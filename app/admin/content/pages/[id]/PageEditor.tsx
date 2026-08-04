@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
+  GripVertical,
   History,
   Loader2,
   Plus,
@@ -206,6 +207,38 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [blocks]);
 
+  /**
+   * Drag-and-drop reordering.
+   *
+   * Native HTML5 drag events rather than a library: the list is small, the
+   * blocks are already keyed by id, and a dependency here would have to be
+   * kept in step with the Base UI focus handling for no gain.
+   *
+   * `dragOver` is tracked separately from `dragging` so the drop indicator can
+   * render between rows — a highlight on the row itself reads as "replace
+   * this" rather than "insert here".
+   */
+  const [dragging, setDragging] = React.useState<string | null>(null);
+  const [dragOver, setDragOver] = React.useState<string | null>(null);
+
+  function onDrop(targetId: string) {
+    const sourceId = dragging;
+    setDragging(null);
+    setDragOver(null);
+    if (!sourceId || sourceId === targetId) return;
+
+    setBlocks((bs) => {
+      const from = bs.findIndex((b) => b.id === sourceId);
+      const to = bs.findIndex((b) => b.id === targetId);
+      if (from < 0 || to < 0) return bs;
+      const next = [...bs];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setSelected(sourceId);
+  }
+
   const current = blocks.find((b) => b.id === selected) ?? null;
 
   function patch(id: string, key: string, value: string) {
@@ -354,13 +387,42 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
             <CardContent className="p-3">
               <ul className="flex flex-col gap-1">
                 {blocks.map((b, i) => (
-                  <li key={b.id}>
+                  <li
+                    key={b.id}
+                    draggable
+                    onDragStart={() => setDragging(b.id)}
+                    onDragEnd={() => {
+                      setDragging(null);
+                      setDragOver(null);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragging && dragging !== b.id) setDragOver(b.id);
+                    }}
+                    onDragLeave={() => setDragOver((d) => (d === b.id ? null : d))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      onDrop(b.id);
+                    }}
+                    className={cn(
+                      "rounded-lg transition-[box-shadow,opacity]",
+                      dragging === b.id && "opacity-40",
+                      dragOver === b.id && "shadow-[inset_0_2px_0_0_var(--brand)]"
+                    )}
+                  >
                     <div
                       className={cn(
                         "flex items-center gap-1 rounded-lg border px-2 py-1.5 transition-colors",
                         selected === b.id ? "border-brand bg-brand-subtle" : "border-transparent"
                       )}
                     >
+                      <span
+                        aria-hidden
+                        className="cursor-grab text-ink-tertiary active:cursor-grabbing"
+                        title="Drag to reorder"
+                      >
+                        <GripVertical className="size-3.5" />
+                      </span>
                       <button
                         type="button"
                         onClick={() => setSelected(b.id)}

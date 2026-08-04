@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  GripVertical,
   Indent,
   Link2,
   Loader2,
@@ -84,6 +85,8 @@ export function NavigationManager({
   }, [menus, active]);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [dragging, setDragging] = React.useState<string | null>(null);
+  const [dragOver, setDragOver] = React.useState<string | null>(null);
 
   const menu = menus.find((m) => m.id === active) ?? null;
   const menuItems = active ? (items[active] ?? []) : [];
@@ -139,6 +142,42 @@ export function NavigationManager({
     await run(
       () => reorderMenuItems([{ id: item.id, position: item.position, parent_id: above.id }]),
       `Nested under ${above.label}`
+    );
+  }
+
+  /**
+   * Dragging reorders within a level and persists immediately.
+   *
+   * Dropping onto a ROOT item while dragging a root reorders; dropping a root
+   * onto another root's child area is not offered, because nesting is an
+   * explicit action (the indent button) rather than something a stray drop
+   * should do by accident.
+   */
+  async function onDropItem(target: MenuItem) {
+    const sourceId = dragging;
+    setDragging(null);
+    setDragOver(null);
+    if (!sourceId || sourceId === target.id) return;
+
+    const source = menuItems.find((i) => i.id === sourceId);
+    if (!source || source.parent_id !== target.parent_id) return;
+
+    const siblings = menuItems
+      .filter((i) => i.parent_id === source.parent_id)
+      .sort((a, b) => a.position - b.position);
+
+    const from = siblings.findIndex((i) => i.id === source.id);
+    const to = siblings.findIndex((i) => i.id === target.id);
+    const next = [...siblings];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+
+    await run(
+      () =>
+        reorderMenuItems(
+          next.map((i, idx) => ({ id: i.id, position: idx + 1, parent_id: i.parent_id }))
+        ),
+      "Order saved"
     );
   }
 
@@ -309,6 +348,11 @@ export function NavigationManager({
                               run(() => updateMenuItem(it.id, { is_visible: !it.is_visible }))
                             }
                             onDelete={(it) => run(() => deleteMenuItem(it.id), "Item removed")}
+                            dragging={dragging}
+                            dragOver={dragOver}
+                            onDragStart={setDragging}
+                            onDragOverItem={setDragOver}
+                            onDropItem={onDropItem}
                           />,
                           ...childrenOf(root.id)
                             .sort((a, b) => a.position - b.position)
@@ -326,6 +370,11 @@ export function NavigationManager({
                                   run(() => updateMenuItem(it.id, { is_visible: !it.is_visible }))
                                 }
                                 onDelete={(it) => run(() => deleteMenuItem(it.id), "Item removed")}
+                                dragging={dragging}
+                                dragOver={dragOver}
+                                onDragStart={setDragging}
+                                onDragOverItem={setDragOver}
+                                onDropItem={onDropItem}
                               />
                             )),
                         ])}
@@ -359,6 +408,11 @@ function Row({
   onOutdent,
   onToggle,
   onDelete,
+  dragging,
+  dragOver,
+  onDragStart,
+  onDragOverItem,
+  onDropItem,
 }: {
   item: MenuItem;
   nested?: boolean;
@@ -369,6 +423,11 @@ function Row({
   onOutdent: (i: MenuItem) => void;
   onToggle: (i: MenuItem) => void;
   onDelete: (i: MenuItem) => void;
+  dragging: string | null;
+  dragOver: string | null;
+  onDragStart: (id: string | null) => void;
+  onDragOverItem: (id: string | null) => void;
+  onDropItem: (i: MenuItem) => void;
 }) {
   const page = item.page_id ? pages.find((p) => p.id === item.page_id) : null;
   // A page item whose target is not published is shown as a warning here rather
@@ -376,13 +435,42 @@ function Row({
   const unpublished = item.item_type === "page" && page && page.status !== "published";
 
   return (
-    <li className={cn(nested && "ml-8")}>
+    <li
+      draggable
+      onDragStart={() => onDragStart(item.id)}
+      onDragEnd={() => {
+        onDragStart(null);
+        onDragOverItem(null);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (dragging && dragging !== item.id) onDragOverItem(item.id);
+      }}
+      onDragLeave={() => onDragOverItem(null)}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDropItem(item);
+      }}
+      className={cn(
+        nested && "ml-8",
+        "rounded-lg transition-[box-shadow,opacity]",
+        dragging === item.id && "opacity-40",
+        dragOver === item.id && "shadow-[inset_0_2px_0_0_var(--brand)]"
+      )}
+    >
       <div
         className={cn(
           "flex items-center gap-2 rounded-lg border px-3 py-2",
           item.is_visible ? "border-line" : "border-dashed border-line-strong opacity-60"
         )}
       >
+        <span
+          aria-hidden
+          className="cursor-grab text-ink-tertiary active:cursor-grabbing"
+          title="Drag to reorder"
+        >
+          <GripVertical className="size-3.5" />
+        </span>
         {item.item_type === "page" ? (
           <FileText className="size-3.5 shrink-0 text-ink-tertiary" aria-hidden />
         ) : (
