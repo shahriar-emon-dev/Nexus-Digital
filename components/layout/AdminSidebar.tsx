@@ -94,6 +94,7 @@ export const adminSections: NavSection[] = [
         children: [
           { href: "/admin/content/blog", label: "Blog", icon: FileSignature },
           { href: "/admin/content/pages", label: "Landing Pages", icon: LayoutTemplate },
+          { href: "/admin/content/services", label: "Services", icon: Boxes },
           { href: "/admin/content/case-studies", label: "Case Studies", icon: Layers },
           { href: "/admin/content/homepage", label: "Homepage", icon: LayoutDashboard },
           { href: "/admin/media", label: "Media Library", icon: ImageIcon },

@@ -3,6 +3,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { getPublishedPage } from "@/lib/supabase/page-actions";
+
 import { RouteScaffold } from "@/components/shared/RouteScaffold";
 import {
   Gauge,
@@ -47,7 +50,13 @@ const toneClasses = {
 
 type Props = { params: { slug: string } };
 
-export function generateMetadata({ params }: Props): Metadata {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const cms = await getPublishedPage(`services/${params.slug}`);
+  if (cms) {
+    const seo = cms.seo as { title?: string; description?: string };
+    return { title: seo.title || cms.title, description: seo.description };
+  }
+
   const service = services[params.slug];
   if (!service) return { title: "Services detail" };
   return {
@@ -56,7 +65,19 @@ export function generateMetadata({ params }: Props): Metadata {
   };
 }
 
-export default function ServiceDetailPage({ params }: Props) {
+export default async function ServiceDetailPage({ params }: Props) {
+  // A CMS service wins. Checking it first means an administrator can create a
+  // service page without a developer, and can also replace a hand-built one by
+  // publishing a page at the same slug.
+  const cms = await getPublishedPage(`services/${params.slug}`);
+  if (cms) {
+    return (
+      <main>
+        <BlockRenderer blocks={cms.blocks} />
+      </main>
+    );
+  }
+
   const service = services[params.slug];
 
   // Existence is decided by the catalogue; `service-data` only holds the
