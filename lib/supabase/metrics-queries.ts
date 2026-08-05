@@ -1,3 +1,5 @@
+import { unstable_noStore as noStore } from "next/cache";
+
 import { createClient } from "./server";
 
 /**
@@ -24,6 +26,12 @@ export type CommandBarMetrics = {
 };
 
 export async function getCommandBarMetrics(): Promise<CommandBarMetrics> {
+  // supabase-js issues GET requests, which the App Router caches by default.
+  // Without this the realtime subscription fires, router.refresh() re-renders,
+  // and the cached response returns the same numbers — the bar looked frozen
+  // while realtime was working correctly. Verified: events were delivered.
+  noStore();
+
   const supabase = await createClient();
 
   const now = new Date();
