@@ -183,6 +183,12 @@ export type Database = {
         Update: { badge?: string | null; created_at?: string; external_url?: string | null; id?: string; is_visible?: boolean; item_type?: Database["public"]["Enums"]["menu_item_type"]; label?: string; menu_id?: string; open_in_new_tab?: boolean; page_id?: string | null; parent_id?: string | null; position?: number; updated_at?: string };
         Relationships: [];
       };
+      staff_profiles: {
+        Row: { created_at: string; department: Database["public"]["Enums"]["department"] | null; display_order: number; display_role: string; id: string; is_public: boolean; skills: string[]; slug: string; updated_at: string };
+        Insert: { created_at?: string; department?: Database["public"]["Enums"]["department"] | null; display_order?: number; display_role?: string; id: string; is_public?: boolean; skills?: string[]; slug: string; updated_at?: string };
+        Update: { created_at?: string; department?: Database["public"]["Enums"]["department"] | null; display_order?: number; display_role?: string; id?: string; is_public?: boolean; skills?: string[]; slug?: string; updated_at?: string };
+        Relationships: [];
+      };
       site_settings: {
         Row: { homepage_page_id: string | null; id: boolean; site_name: string; updated_at: string; updated_by: string | null };
         Insert: { homepage_page_id?: string | null; id?: boolean; site_name?: string; updated_at?: string; updated_by?: string | null };
@@ -443,6 +449,10 @@ export type Database = {
       };
     };
     Views: {
+      public_staff: {
+        Row: { avatar_url: string | null; department: Database["public"]["Enums"]["department"] | null; display_order: number | null; display_role: string | null; full_name: string | null; id: string | null; skills: string[] | null; slug: string | null };
+        Relationships: [];
+      };
       resolved_menu_items: {
         Row: {
           badge: string | null;
@@ -480,6 +490,7 @@ export type Database = {
       page_status: "draft" | "published" | "scheduled" | "unpublished" | "archived";
       menu_location: "header" | "footer" | "mobile" | "utility";
       menu_item_type: "page" | "external" | "anchor";
+      department: "Architectural Council" | "Growth Operations" | "Creative Engineering" | "Core Engineering";
       milestone_status: "done" | "active" | "upcoming" | "final";
       project_status: "Active" | "On Hold" | "Completed" | "Archived";
       portal: "ADMIN" | "STAFF" | "CLIENT";

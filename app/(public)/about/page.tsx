@@ -5,6 +5,7 @@ import { ArrowRight, Terminal, Zap } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { departmentTone, leadership } from "@/lib/team";
+import { listPublicStaff } from "@/lib/supabase/staff-queries";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AgencyPulse } from "@/components/about/AgencyPulse";
@@ -22,7 +23,18 @@ const ethos = [
   { icon: Zap, label: "Hyper-Agile Cycles" },
 ];
 
-export default function AboutPage() {
+// The roster is database-backed, so a fully static page would serve whatever
+// existed at build time. ISR keeps the page static and cheap while letting a
+// newly published staff member appear without a deploy.
+export const revalidate = 60;
+
+export default async function AboutPage() {
+  // Published staff win. Falling back to the built-in roster means the page is
+  // never empty before anyone has been published, and an administrator takes
+  // it over simply by marking staff public — no deploy, no blank section.
+  const published = await listPublicStaff();
+  const roster = published.length > 0 ? published : leadership;
+
   return (
     <>
       <div className="noise-field" aria-hidden />
@@ -98,7 +110,7 @@ export default function AboutPage() {
           </div>
 
           <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {leadership.map((member, i) => (
+            {roster.map((member, i) => (
               <li key={member.id}>
                 <Reveal delay={i * 90}>
                   <Card
