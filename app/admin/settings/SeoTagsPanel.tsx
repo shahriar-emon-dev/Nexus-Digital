@@ -4,25 +4,51 @@ import * as React from "react";
 import { Code2, Globe, ImageUp, LineChart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { idPatterns, SEO_LIMITS, siteSettings } from "@/lib/integrations";
+import { ID_PATTERNS as idPatterns, SEO_LIMITS } from "@/lib/derive";
+import { updateSiteSettings, type SiteSettings } from "@/lib/supabase/site-settings-actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { MediaField } from "@/components/cms/MediaPicker";
 
-export function SeoTagsPanel() {
-  const [title, setTitle] = React.useState(siteSettings.defaultTitle);
-  const [description, setDescription] = React.useState(siteSettings.metaDescription);
-  const [saved, setSaved] = React.useState(false);
+export function SeoTagsPanel({ settings }: { settings: SiteSettings }) {
+  const toast = useToast();
+  const [title, setTitle] = React.useState(settings.default_title ?? "");
+  const [description, setDescription] = React.useState(settings.meta_description ?? "");
+  const [ogImage, setOgImage] = React.useState(settings.og_image_url ?? "");
+  const [ogAlt, setOgAlt] = React.useState(settings.og_image_alt ?? "");
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [dirty, setDirty] = React.useState(false);
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        setSaved(true);
+        setSaving(true);
+        setError(null);
+        const data = new FormData(e.currentTarget);
+        data.set("defaultTitle", title);
+        data.set("metaDescription", description);
+        data.set("ogImage", ogImage);
+        const result = await updateSiteSettings(data);
+        setSaving(false);
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        setDirty(false);
+        toast.add({ title: "Published to every public page", type: "success" });
       }}
       className="flex flex-col gap-10"
     >
+      {error && (
+        <Alert tone="danger" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       {/* ── Analytics ───────────────────────────────────────────────────── */}
       <Section icon={LineChart} title="Analytics and tracking">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -35,11 +61,11 @@ export function SeoTagsPanel() {
             </label>
             <Input
               id="ga4"
-              name="ga4"
-              defaultValue={siteSettings.ga4MeasurementId}
+              name="ga4MeasurementId"
+              defaultValue={settings.ga4_measurement_id ?? ""}
               placeholder="G-XXXXXXXXXX"
               pattern={idPatterns.ga4.pattern}
-              onChange={() => setSaved(false)}
+              onChange={() => setDirty(true)}
               className="font-mono"
             />
             <p className="text-[0.75rem] text-ink-tertiary">{idPatterns.ga4.hint}</p>
@@ -54,11 +80,11 @@ export function SeoTagsPanel() {
             </label>
             <Input
               id="gtm"
-              name="gtm"
-              defaultValue={siteSettings.gtmContainerId}
+              name="gtmContainerId"
+              defaultValue={settings.gtm_container_id ?? ""}
               placeholder="GTM-XXXXXXX"
               pattern={idPatterns.gtm.pattern}
-              onChange={() => setSaved(false)}
+              onChange={() => setDirty(true)}
               className="font-mono"
             />
             <p className="text-[0.75rem] text-ink-tertiary">{idPatterns.gtm.hint}</p>
@@ -94,31 +120,23 @@ export function SeoTagsPanel() {
               <span className="text-[0.6875rem] font-semibold tracking-widest text-ink-tertiary uppercase">
                 Share image (1200 × 630)
               </span>
-              {/* A real button, not a hover-revealed overlay. */}
-              <button
-                type="button"
-                onClick={() => setSaved(false)}
-                className={cn(
-                  "group relative h-52 overflow-hidden rounded-xl border border-dashed border-line-strong",
-                  "transition-colors duration-(--duration-normal) hover:border-brand",
-                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
-                )}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={siteSettings.ogImage}
-                  alt={siteSettings.ogImageAlt}
-                  className="absolute inset-0 size-full object-cover opacity-60 transition-transform duration-(--duration-deliberate) ease-(--ease-out-quint) group-hover:scale-105"
-                />
-                <span className="relative z-10 flex size-full flex-col items-center justify-center gap-2 bg-canvas/40">
-                  <ImageUp className="size-7 text-brand" aria-hidden />
-                  <span className="text-[0.8125rem] font-semibold text-ink">
-                    Replace image
-                  </span>
-                </span>
-              </button>
+              {/* Picks from the media library rather than pointing at a CDN URL
+                  that expires, which is what the previous hardcoded value did. */}
+              {/* Reuses the page builder's picker, so there is one media
+                  chooser in the product rather than two that drift apart. */}
+              <MediaField
+                value={ogImage}
+                alt={ogAlt}
+                label=""
+                onChange={(next) => {
+                  setOgImage(next.url);
+                  setOgAlt(next.alt);
+                  setDirty(true);
+                }}
+              />
+              <input type="hidden" name="ogImageAlt" value={ogAlt} />
               <p className="text-[0.75rem] text-ink-tertiary">
-                {siteSettings.ogImageAlt}
+                {ogAlt || "No image description set — add one in the media library."}
               </p>
             </div>
           </div>
@@ -140,40 +158,39 @@ export function SeoTagsPanel() {
         <div className="flex flex-col gap-6">
           <ScriptField
             id="header-scripts"
+            name="headerScripts"
             label="Header scripts"
             hint="Injected into <head>. Use for verification tags and stylesheets."
-            defaultValue={siteSettings.headerScripts}
+            defaultValue={settings.header_scripts ?? ""}
             rows={5}
-            onChange={() => setSaved(false)}
+            onChange={() => setDirty(true)}
           />
           <ScriptField
             id="body-scripts"
+            name="bodyStartScripts"
             label="Body start scripts"
             hint="Injected immediately after <body> opens. Use for noscript fallbacks."
-            defaultValue={siteSettings.bodyStartScripts}
+            defaultValue={settings.body_start_scripts ?? ""}
             rows={3}
-            onChange={() => setSaved(false)}
+            onChange={() => setDirty(true)}
           />
         </div>
       </Section>
 
       <div className="flex flex-wrap items-center justify-end gap-4 border-t border-line-subtle pt-8">
-        {saved && (
-          <p
-            aria-live="polite"
-            className="mr-auto max-w-md text-[0.8125rem] text-warning"
-          >
-            {/* TODO: PUT to the settings endpoint. */}
-            Not saved — the settings API is not connected yet, so nothing was
-            written and no tag was published.
+        {dirty && (
+          <p aria-live="polite" className="mr-auto max-w-md text-[0.8125rem] text-ink-tertiary">
+            Unsaved changes. Saving publishes these tags to every public page
+            immediately.
           </p>
         )}
         <Button
           type="submit"
           size="xl"
+          disabled={saving}
           className="shadow-[0_0_20px_var(--brand-glow)] transition-transform hover:scale-105"
         >
-          Save global changes
+          {saving ? "Saving…" : "Save global changes"}
         </Button>
       </div>
     </form>
@@ -271,6 +288,7 @@ function Counted({
 
 function ScriptField({
   id,
+  name,
   label,
   hint,
   defaultValue,
@@ -278,6 +296,7 @@ function ScriptField({
   onChange,
 }: {
   id: string;
+  name: string;
   label: string;
   hint: string;
   defaultValue: string;
@@ -296,6 +315,7 @@ function ScriptField({
       </div>
       <Textarea
         id={id}
+        name={name}
         rows={rows}
         defaultValue={defaultValue}
         onChange={onChange}

@@ -34,6 +34,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
 import { filterSections, type Grants } from "@/lib/nav-filter";
+import { cn } from "@/lib/utils";
 
 export const adminSections: NavSection[] = [
   {
@@ -131,25 +132,72 @@ export const adminSections: NavSection[] = [
 
 const defaultUser: SidebarUser = { name: "Alex Vance", role: "Executive Admin" };
 
-/** Live infrastructure readouts, pinned above the navigation. */
-function SystemBadges({ load = 24, redis = 98 }: { load?: number; redis?: number }) {
+/**
+ * Live infrastructure readouts, pinned above the navigation.
+ *
+ * These used to be `load = 24` and `redis = 98` — two constants in a default
+ * parameter, animated with a pulsing dot to look like a feed. There is no
+ * Redis in this stack. Both are now measured: connection-pool pressure and the
+ * Postgres buffer cache hit ratio, the genuine equivalents.
+ *
+ * A null telemetry prop means the reading is unavailable rather than zero, and
+ * the badge says so instead of showing a confident 0%.
+ */
+export type SidebarTelemetry = {
+  connectionPct: number | null;
+  cacheHitRatio: number | null;
+} | null;
+
+function SystemBadges({ telemetry }: { telemetry: SidebarTelemetry }) {
+  const pressure = telemetry?.connectionPct ?? null;
+  const cache = telemetry?.cacheHitRatio ?? null;
+  const cacheHealthy = cache !== null && cache >= 95;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-sunken px-3 py-2">
-        <span className="text-[0.6875rem] font-medium text-ink-secondary">System Load</span>
-        <span data-tabular className="text-[0.6875rem] font-bold text-ion">
-          {load}%
+        <span className="text-[0.6875rem] font-medium text-ink-secondary">Connections</span>
+        <span
+          data-tabular
+          className={cn(
+            "text-[0.6875rem] font-bold",
+            pressure === null ? "text-ink-tertiary" : pressure > 80 ? "text-warning" : "text-ion"
+          )}
+        >
+          {pressure === null ? "—" : `${pressure}%`}
         </span>
       </div>
       <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-sunken px-3 py-2">
-        <span className="text-[0.6875rem] font-medium text-ink-secondary">Redis</span>
-        <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold text-success">
-          <span className="relative flex size-1.5" aria-hidden>
-            <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-70 motion-reduce:animate-none" />
-            <span className="relative size-1.5 rounded-full bg-success" />
+        <span className="text-[0.6875rem] font-medium text-ink-secondary">Cache hits</span>
+        {cache === null ? (
+          <span data-tabular className="text-[0.6875rem] font-bold text-ink-tertiary">
+            —
           </span>
-          <span data-tabular>{redis}% Healthy</span>
-        </span>
+        ) : (
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-[0.6875rem] font-bold",
+              cacheHealthy ? "text-success" : "text-warning"
+            )}
+          >
+            <span className="relative flex size-1.5" aria-hidden>
+              <span
+                className={cn(
+                  "absolute inset-0 rounded-full opacity-70",
+                  cacheHealthy && "animate-ping bg-success motion-reduce:animate-none",
+                  !cacheHealthy && "bg-warning"
+                )}
+              />
+              <span
+                className={cn(
+                  "relative size-1.5 rounded-full",
+                  cacheHealthy ? "bg-success" : "bg-warning"
+                )}
+              />
+            </span>
+            <span data-tabular>{cache}%</span>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -158,11 +206,14 @@ function SystemBadges({ load = 24, redis = 98 }: { load?: number; redis?: number
 export function AdminSidebar({
   user = defaultUser,
   grants,
+  telemetry = null,
 }: {
   user?: SidebarUser;
   /** Plain `moduleId -> level` map. Filtering happens here, not on the server:
       nav icons are React components and cannot cross the RSC boundary. */
   grants?: Grants;
+  /** Measured readouts. Null when the caller cannot read Postgres statistics. */
+  telemetry?: SidebarTelemetry;
 }) {
   const visible = React.useMemo(
     () => filterSections(adminSections, grants ?? {}),
@@ -174,7 +225,7 @@ export function AdminSidebar({
       sub="Command Center"
       sections={visible}
       user={user}
-      header={<SystemBadges />}
+      header={<SystemBadges telemetry={telemetry} />}
       footer={
         <div className="flex flex-col gap-1">
           {/* These were plain buttons with no handler and no href — visibly

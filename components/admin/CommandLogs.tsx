@@ -1,99 +1,93 @@
 import Link from "next/link";
+import { ScrollText } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-
-export type LogKind = "AUTH" | "TRANS" | "SYNC" | "WARN";
-
-export type LogEntry = {
-  time: string;
-  kind: LogKind;
-  message: string;
-  action?: string;
-};
+import { EmptyState } from "@/components/shared/EmptyState";
+import { listAuditEntries, type AuditEntry } from "@/lib/supabase/audit-queries";
 
 /**
- * Tag colours are paired with the tag text itself, so the severity of a line is
- * never carried by colour alone — the `[WARN]` token reads the same in
- * greyscale, in a print-out, and under any colour-vision deficiency.
+ * The most recent privileged actions, read from the audit trail.
+ *
+ * Previously four hardcoded lines that never changed — including a $24,500
+ * Stripe payment for a contract that does not exist and a blocked login from
+ * an RFC1918 address. A dashboard that invents security events is worse than
+ * one with an empty panel, because it teaches people to ignore the panel.
+ *
+ * Severity is carried by the tag text as well as its colour, so a line reads
+ * the same in greyscale, in a print-out, and under any colour-vision
+ * deficiency.
  */
-const kindStyle: Record<LogKind, { text: string; row: string }> = {
-  AUTH: { text: "text-success", row: "" },
-  TRANS: { text: "text-brand", row: "border-l-2 border-brand/40 bg-brand/5" },
-  SYNC: { text: "text-ion", row: "" },
-  WARN: { text: "text-danger", row: "border-l-2 border-danger/40 bg-danger/5" },
+
+const severityStyle: Record<AuditEntry["severity"], { text: string; row: string; tag: string }> = {
+  info: { text: "text-ion", row: "", tag: "INFO" },
+  notice: { text: "text-success", row: "", tag: "NOTE" },
+  warning: { text: "text-warning", row: "border-l-2 border-warning/40 bg-warning/5", tag: "WARN" },
+  critical: { text: "text-danger", row: "border-l-2 border-danger/40 bg-danger/5", tag: "CRIT" },
 };
 
-const entries: LogEntry[] = [
-  {
-    time: "14:22:04",
-    kind: "AUTH",
-    message: "Admin ALEX_VANCE successfully initialized System Audit protocol.",
-  },
-  {
-    time: "13:45:12",
-    kind: "TRANS",
-    message: "Contract #8291 (Nova Fintech) payment of $24,500 processed via Stripe.",
-  },
-  {
-    time: "12:05:58",
-    kind: "SYNC",
-    message: "Global Project Templates updated by Lead Architect ELARA_KENT.",
-  },
-  {
-    time: "11:12:30",
-    kind: "WARN",
-    message: "Login anomaly detected from IP 192.168.1.104. Automated block applied.",
-    action: "Investigate",
-  },
-];
+const timeFmt = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
 
-export function CommandLogs() {
+export async function CommandLogs() {
+  const { entries } = await listAuditEntries({ limit: 6 });
+
   return (
     <section aria-labelledby="command-logs-heading">
       <div className="mb-6 flex items-center justify-between gap-3">
         <h3 id="command-logs-heading" className="font-heading text-xl font-semibold text-ink">
           Live Command Logs
         </h3>
-        <Button variant="link" size="sm" render={<Link href="/admin/settings/security" />}>
+        <Button variant="link" size="sm" render={<Link href="/admin/audit-logs" />}>
           View Full Archive
         </Button>
       </div>
 
-      <ol className="flex flex-col gap-3 font-mono text-xs">
-        {entries.map((entry) => {
-          const style = kindStyle[entry.kind];
-          return (
-            <li
-              key={entry.time}
-              className={cn(
-                "group flex flex-wrap items-start gap-x-4 gap-y-1 rounded p-2",
-                "transition-colors duration-(--duration-instant) hover:bg-surface-sunken",
-                style.row
-              )}
-            >
-              <time className="shrink-0 text-ink-tertiary" dateTime={entry.time}>
-                {entry.time}
-              </time>
-              <span className={cn("shrink-0 font-bold", style.text)}>[{entry.kind}]</span>
-              <span className="min-w-40 flex-1 text-ink-secondary">{entry.message}</span>
-              <button
-                type="button"
+      {entries.length === 0 ? (
+        <EmptyState
+          icon={ScrollText}
+          title="No privileged actions recorded"
+          description="Role changes, portal reassignments and credential rotations are written here by database triggers as they happen."
+        />
+      ) : (
+        <ol className="flex flex-col gap-3 font-mono text-xs">
+          {entries.map((entry) => {
+            const style = severityStyle[entry.severity];
+            return (
+              <li
+                key={entry.id}
                 className={cn(
-                  "ml-auto shrink-0 rounded-sm tracking-wider uppercase transition-colors",
-                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
-                  entry.action
-                    ? "font-bold text-danger hover:underline"
-                    : "text-ink-tertiary hover:text-brand"
+                  "group flex flex-wrap items-start gap-x-4 gap-y-1 rounded p-2",
+                  "transition-colors duration-(--duration-instant) hover:bg-surface-sunken",
+                  style.row
                 )}
               >
-                {entry.action ?? "Details"}
-                <span className="sr-only"> for the {entry.time} log entry</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                <time className="shrink-0 text-ink-tertiary" dateTime={entry.created_at}>
+                  {timeFmt.format(new Date(entry.created_at))}
+                </time>
+                <span className={cn("shrink-0 font-bold", style.text)}>[{style.tag}]</span>
+                <span className="min-w-40 flex-1 text-ink-secondary">{entry.summary}</span>
+                <Link
+                  href={`/admin/audit-logs?entity=${encodeURIComponent(entry.entity_type)}`}
+                  className={cn(
+                    "ml-auto shrink-0 rounded-sm tracking-wider uppercase transition-colors",
+                    "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                    entry.severity === "critical"
+                      ? "font-bold text-danger hover:underline"
+                      : "text-ink-tertiary hover:text-brand"
+                  )}
+                >
+                  Details
+                  <span className="sr-only"> for {entry.summary}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
   );
 }

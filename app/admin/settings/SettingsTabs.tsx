@@ -1,17 +1,28 @@
 "use client";
 
+import * as React from "react";
 import { Globe, Plug } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IntegrationsPanel } from "./IntegrationsPanel";
 import { SeoTagsPanel } from "./SeoTagsPanel";
+import type { SiteSettings } from "@/lib/supabase/site-settings-actions";
 
 /**
  * Real tabs rather than the source's `onclick="switchTab()"` pair, which
  * toggled a `hidden` class and left both panels in the accessibility tree with
  * no `aria-selected` on either button.
+ *
+ * The integrations tab renders a server component passed in as a child, so
+ * credential data is composed on the server and never crosses into this
+ * client bundle.
  */
-export function SettingsTabs() {
+export function SettingsTabs({
+  settings,
+  integrations,
+}: {
+  settings: SiteSettings;
+  integrations: React.ReactNode;
+}) {
   return (
     <Tabs defaultValue="integrations">
       <TabsList variant="underline" className="scrollbar-none overflow-x-auto">
@@ -26,11 +37,11 @@ export function SettingsTabs() {
       </TabsList>
 
       <TabsContent value="integrations" className="mt-8">
-        <IntegrationsPanel />
+        {integrations}
       </TabsContent>
 
       <TabsContent value="seo" className="mt-8">
-        <SeoTagsPanel />
+        <SeoTagsPanel settings={settings} />
       </TabsContent>
     </Tabs>
   );

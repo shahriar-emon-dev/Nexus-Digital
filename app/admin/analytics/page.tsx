@@ -1,7 +1,10 @@
-import { RouteScaffold } from "@/components/shared/RouteScaffold";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Analytics" };
-
+/**
+ * `/admin/analytics` is a section, not a screen — SEO Overview and Keywords
+ * are its two pages. A landing page here would either duplicate the overview
+ * or be an index of two links, so it forwards instead.
+ */
 export default function AdminAnalyticsPage() {
-  return <RouteScaffold title="Analytics" route="/admin/analytics" />;
+  redirect("/admin/analytics/seo");
 }

@@ -15,8 +15,11 @@ import {
   GripVertical,
   History,
   Loader2,
+  Monitor,
   Plus,
   Rocket,
+  Smartphone,
+  Tablet,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -38,6 +41,7 @@ import {
   type PageDraft,
 } from "@/lib/supabase/page-actions";
 import { MediaField } from "@/components/cms/MediaPicker";
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { cn } from "@/lib/utils";
 
 /**
@@ -220,6 +224,11 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
    */
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [dragOver, setDragOver] = React.useState<string | null>(null);
+  /** Editor vs. preview. Preview renders the draft through the SAME renderer
+      the published page uses, so what it shows is what publishing produces —
+      not an approximation drawn in grey boxes. */
+  const [mode, setMode] = React.useState<"edit" | "preview">("edit");
+  const [viewport, setViewport] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
 
   function onDrop(targetId: string) {
     const sourceId = dragging;
@@ -358,6 +367,59 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label="Editing mode"
+            className="flex rounded-lg border border-line-strong p-0.5"
+          >
+            {(["edit", "preview"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => setMode(m)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                  mode === m ? "bg-brand text-brand-fg" : "text-ink-secondary hover:text-ink"
+                )}
+              >
+                {m === "edit" ? "Edit" : "Preview"}
+              </button>
+            ))}
+          </div>
+
+          {mode === "preview" && (
+            <div
+              role="group"
+              aria-label="Preview width"
+              className="flex rounded-lg border border-line-strong p-0.5"
+            >
+              {(
+                [
+                  ["desktop", Monitor, "Desktop"],
+                  ["tablet", Tablet, "Tablet"],
+                  ["mobile", Smartphone, "Mobile"],
+                ] as const
+              ).map(([key, Icon, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={viewport === key}
+                  aria-label={label}
+                  onClick={() => setViewport(key)}
+                  className={cn(
+                    "rounded-md p-1.5 transition-colors",
+                    "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                    viewport === key ? "bg-brand text-brand-fg" : "text-ink-secondary hover:text-ink"
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden />
+                </button>
+              ))}
+            </div>
+          )}
+
           {live && (
             <Button variant="ghost" size="sm" render={<Link href={`/${draft.page.slug}`} target="_blank" />}>
               <ExternalLink />
@@ -380,6 +442,31 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
         </div>
       </div>
 
+      {mode === "preview" ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-ink-tertiary">
+            Rendered from the current draft with the same components the
+            published page uses. Hidden blocks are omitted here exactly as they
+            will be on the live page.
+          </p>
+          <div
+            className={cn(
+              "mx-auto w-full overflow-hidden rounded-2xl border border-line bg-canvas transition-[max-width]",
+              viewport === "desktop" && "max-w-full",
+              viewport === "tablet" && "max-w-3xl",
+              viewport === "mobile" && "max-w-sm"
+            )}
+          >
+            {blocks.filter((b) => b.visible).length === 0 ? (
+              <p className="py-24 text-center text-sm text-ink-tertiary">
+                Every block is hidden, so the published page would be empty.
+              </p>
+            ) : (
+              <BlockRenderer blocks={blocks.filter((b) => b.visible)} />
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="grid gap-5 lg:grid-cols-[20rem_1fr]">
         {/* ------------------------------------------------ block list --- */}
         <div className="flex flex-col gap-3">
@@ -602,6 +689,7 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
           </CardContent>
         </Card>
       </div>
+      )}
     </div>
   );
 }

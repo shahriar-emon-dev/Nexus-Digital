@@ -1,254 +1,491 @@
 "use client";
 
 import * as React from "react";
-import { FilterX } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Check, FilterX, Loader2, Plus, Trash2, Users } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-import {
-  allocations,
-  bandFor,
-  bandMeta,
-  DAYS_IN_MONTH,
-  dayPercent,
-  departments,
-  isWeekend,
-  memberFor,
-  monthLabel,
-  peakWeekHours,
-  seniorities,
-  timezones,
-  weekdayFor,
-  type Seniority,
-} from "@/lib/allocation";
-import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage, initials } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
+import { useRealtime } from "@/lib/supabase/use-realtime";
+import {
+  removeAssignment,
+  saveAssignment,
+  type StaffAssignment,
+  type StaffMember,
+} from "@/lib/supabase/staff-actions";
+import { cn } from "@/lib/utils";
 
-const days = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1);
+/**
+ * Allocation, at the resolution the business actually records.
+ *
+ * The previous grid was a day-by-day heatmap across 24 columns of invented
+ * hours, over a roster with nothing scheduled. Assignments are recorded per
+ * week, so a per-day view would be fabricating precision. This shows each
+ * person's booked hours against their contracted hours, broken down by the
+ * projects that produce the number.
+ */
 
-export function AllocationGrid() {
+type Band = "overbooked" | "optimal" | "under" | "unscheduled";
+
+const bandMeta: Record<
+  Band,
+  { label: string; hint: string; tone: "danger" | "success" | "info" | "default"; bar: string }
+> = {
+  overbooked: { label: "Overbooked", hint: "over contracted hours", tone: "danger", bar: "bg-danger" },
+  optimal: { label: "Optimised", hint: "60–100%", tone: "success", bar: "bg-success" },
+  under: { label: "Underutilised", hint: "under 60%", tone: "info", bar: "bg-info" },
+  unscheduled: { label: "Not scheduled", hint: "no assignment", tone: "default", bar: "bg-line-strong" },
+};
+
+function bandFor(assigned: number, capacity: number): Band {
+  if (assigned === 0 || capacity <= 0) return "unscheduled";
+  const pct = (assigned / capacity) * 100;
+  if (pct > 100) return "overbooked";
+  if (pct >= 60) return "optimal";
+  return "under";
+}
+
+/** Stable colour per project, so one project reads the same in every row. */
+const projectHues = ["bg-brand", "bg-ion", "bg-success", "bg-warning", "bg-info"];
+
+export function AllocationGrid({
+  staff,
+  assignments,
+  projects,
+}: {
+  staff: StaffMember[];
+  assignments: StaffAssignment[];
+  projects: { id: string; name: string }[];
+}) {
+  const router = useRouter();
+  const toast = useToast();
+
   const [department, setDepartment] = React.useState<string>("all");
   const [timezone, setTimezone] = React.useState<string>("all");
-  const [seniority, setSeniority] = React.useState<Seniority | "all">("all");
+  const [seniority, setSeniority] = React.useState<string>("all");
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [assigning, setAssigning] = React.useState<StaffMember | null>(null);
 
-  const active = department !== "all" || timezone !== "all" || seniority !== "all";
+  useRealtime(
+    "admin:allocation",
+    [{ table: "project_assignments" }, { table: "staff_profiles" }],
+    () => router.refresh()
+  );
+
+  const departments = React.useMemo(
+    () => [...new Set(staff.map((s) => s.department).filter(Boolean))] as string[],
+    [staff]
+  );
+  const timezones = React.useMemo(
+    () => [...new Set(staff.map((s) => s.profiles?.timezone).filter(Boolean))] as string[],
+    [staff]
+  );
+  const seniorities = React.useMemo(
+    () => [...new Set(staff.map((s) => s.seniority).filter(Boolean))] as string[],
+    [staff]
+  );
+
+  const byPerson = React.useMemo(() => {
+    const m = new Map<string, StaffAssignment[]>();
+    for (const a of assignments) {
+      const list = m.get(a.profileId) ?? [];
+      list.push(a);
+      m.set(a.profileId, list);
+    }
+    return m;
+  }, [assignments]);
+
+  const projectHue = React.useMemo(() => {
+    const m = new Map<string, string>();
+    projects.forEach((p, i) => m.set(p.id, projectHues[i % projectHues.length]));
+    return m;
+  }, [projects]);
 
   const rows = React.useMemo(
     () =>
-      allocations.filter((allocation) => {
-        const member = memberFor(allocation.memberId);
-        if (!member) return false;
-        if (department !== "all" && member.department !== department) return false;
-        if (timezone !== "all" && allocation.timezone !== timezone) return false;
-        if (seniority !== "all" && allocation.seniority !== seniority) return false;
+      staff.filter((s) => {
+        if (department !== "all" && s.department !== department) return false;
+        if (timezone !== "all" && s.profiles?.timezone !== timezone) return false;
+        if (seniority !== "all" && s.seniority !== seniority) return false;
         return true;
       }),
-    [department, timezone, seniority]
+    [staff, department, timezone, seniority]
   );
+
+  const filtered = department !== "all" || timezone !== "all" || seniority !== "all";
+
+  // A conflict is somebody past their OWN contracted hours, not past a fixed
+  // 45-hour threshold — a part-time contract is breached far earlier than that.
+  const conflicts = rows.filter(
+    (s) => s.utilisation.capacityHours > 0 && s.utilisation.assignedHours > s.utilisation.capacityHours
+  );
+
+  async function run(fn: () => Promise<{ ok: true } | { error: string }>, message: string) {
+    setBusy(true);
+    setError(null);
+    const result = await fn();
+    setBusy(false);
+    if ("error" in result) {
+      setError(result.error);
+      return false;
+    }
+    toast.add({ title: message, type: "success" });
+    router.refresh();
+    return true;
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* ── Filters ─────────────────────────────────────────────────────── */}
-      <Card variant="glass" className="flex-row flex-wrap items-end gap-4 rounded-2xl p-4">
-        <Field label="Department">
-          <Select value={department} onChange={setDepartment}>
-            <option value="all">All departments</option>
-            {departments.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </Select>
-        </Field>
+      {error && (
+        <Alert tone="danger" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-        <Field label="Timezone">
-          <Select value={timezone} onChange={setTimezone}>
-            <option value="all">All timezones</option>
-            {timezones.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </Select>
-        </Field>
+      {conflicts.length > 0 && (
+        <Alert tone="warning">
+          <AlertDescription>
+            {conflicts.length} {conflicts.length === 1 ? "specialist is" : "specialists are"} booked
+            beyond their contracted hours:{" "}
+            {conflicts
+              .map(
+                (c) =>
+                  `${c.profiles?.full_name ?? c.slug} (${c.utilisation.assignedHours}h of ${c.utilisation.capacityHours}h)`
+              )
+              .join(", ")}
+            .
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <div className="flex flex-col gap-1.5">
-          <span
-            id="seniority-label"
-            className="ml-1 text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase"
-          >
-            Seniority
-          </span>
-          <div
-            role="group"
-            aria-labelledby="seniority-label"
-            className="flex flex-wrap gap-2"
-          >
-            {(["all", ...seniorities] as const).map((tier) => {
-              const selected = seniority === tier;
-              return (
-                <button
-                  key={tier}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setSeniority(tier as Seniority | "all")}
-                  className={cn(
-                    "rounded-lg px-3 py-2 text-[0.75rem] font-semibold transition-colors",
-                    "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
-                    selected
-                      ? "bg-brand text-brand-fg"
-                      : "bg-surface-sunken text-ink-tertiary hover:bg-surface hover:text-ink"
-                  )}
-                >
-                  {tier === "all" ? "All" : tier}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {/* -------------------------------------------------------- filters -- */}
+      <Card variant="glass" className="rounded-2xl">
+        <CardContent className="flex flex-wrap items-end gap-4 p-4">
+          <Field label="Department">
+            <Select value={department} onChange={setDepartment}>
+              <option value="all">All departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        {active && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={() => {
-              setDepartment("all");
-              setTimezone("all");
-              setSeniority("all");
-            }}
-          >
-            <FilterX />
-            Clear all
-          </Button>
-        )}
-      </Card>
+          <Field label="Time zone">
+            <Select value={timezone} onChange={setTimezone}>
+              <option value="all">All time zones</option>
+              {timezones.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace("_", " ")}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      {/* ── Heatmap ─────────────────────────────────────────────────────── */}
-      <Card variant="glass" className="min-w-0 gap-0 overflow-hidden rounded-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface-sunken/60 px-5 py-4">
-          <h2 className="font-heading text-lg font-semibold text-ink">{monthLabel}</h2>
-          <p aria-live="polite" className="text-[0.8125rem] text-ink-tertiary">
-            <span data-tabular>{rows.length}</span> of{" "}
-            <span data-tabular>{allocations.length}</span> specialists
-          </p>
-        </div>
-
-        <div className="scrollbar-none min-w-0 overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <caption className="sr-only">
-              Daily utilisation per specialist for {monthLabel}. Each cell states
-              the booked hours and the share of capacity used.
-            </caption>
-            <thead>
-              <tr className="bg-surface-sunken/40">
-                <th
-                  scope="col"
-                  className="sticky left-0 z-10 min-w-52 bg-surface-raised px-4 py-3 text-[0.6875rem] font-semibold tracking-widest text-ink-tertiary uppercase"
-                >
-                  Specialist
-                </th>
-                {days.map((day) => (
-                  <th
-                    key={day}
-                    scope="col"
+          {seniorities.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <span
+                id="seniority-label"
+                className="ml-1 text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase"
+              >
+                Seniority
+              </span>
+              <div role="group" aria-labelledby="seniority-label" className="flex flex-wrap gap-2">
+                {["all", ...seniorities].map((tier) => (
+                  <button
+                    key={tier}
+                    type="button"
+                    aria-pressed={seniority === tier}
+                    onClick={() => setSeniority(tier)}
                     className={cn(
-                      "w-9 px-0 py-3 text-center text-[0.625rem] font-semibold text-ink-tertiary",
-                      isWeekend(day) && "text-ink-tertiary/50"
+                      "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium transition-colors",
+                      "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                      seniority === tier
+                        ? "bg-brand text-brand-fg"
+                        : "bg-surface-sunken text-ink-secondary hover:text-ink"
                     )}
                   >
-                    <span className="block leading-none">{weekdayFor(day)}</span>
-                    <span data-tabular className="block leading-tight">
-                      {String(day).padStart(2, "0")}
-                    </span>
-                  </th>
+                    {tier === "all" ? "All" : tier}
+                  </button>
                 ))}
-              </tr>
-            </thead>
+              </div>
+            </div>
+          )}
 
-            <tbody className="divide-y divide-line-subtle">
-              {rows.map((allocation) => {
-                const member = memberFor(allocation.memberId)!;
-                const peak = peakWeekHours(allocation.daily);
+          {filtered && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={() => {
+                setDepartment("all");
+                setTimezone("all");
+                setSeniority("all");
+              }}
+            >
+              <FilterX />
+              Clear filters
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* --------------------------------------------------------- legend -- */}
+      <ul className="flex flex-wrap gap-x-5 gap-y-2">
+        {(Object.keys(bandMeta) as Band[]).map((b) => (
+          <li key={b} className="flex items-center gap-2 text-[0.8125rem] text-ink-secondary">
+            <span className={cn("size-2.5 rounded-full", bandMeta[b].bar)} aria-hidden />
+            <span className="font-medium text-ink">{bandMeta[b].label}</span>
+            <span className="text-ink-tertiary">{bandMeta[b].hint}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* ------------------------------------------------------------ rows -- */}
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={staff.length === 0 ? "Nobody on the roster" : "No matches"}
+          description={
+            staff.length === 0
+              ? "Allocation is computed from assignments against contracted hours. Add people to the staff roster first."
+              : "No specialist matches those filters."
+          }
+        />
+      ) : (
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <ul className="divide-y divide-line-subtle">
+              {rows.map((s) => {
+                const mine = byPerson.get(s.id) ?? [];
+                const capacity = s.utilisation.capacityHours;
+                const assigned = s.utilisation.assignedHours;
+                const band = bandFor(assigned, capacity);
+                const name = s.profiles?.full_name || s.profiles?.email || s.slug;
+                // Scaled against the larger of capacity and assigned, so an
+                // overbooked row visibly runs past the marker rather than
+                // being clipped at 100% and looking merely full.
+                const scale = Math.max(capacity, assigned) || 1;
+
                 return (
-                  <tr key={allocation.memberId} className="group">
-                    <th
-                      scope="row"
-                      className="sticky left-0 z-10 bg-surface-raised px-4 py-3 text-left font-normal transition-colors group-hover:bg-surface-sunken"
-                    >
-                      <span className="flex items-center gap-3">
-                        <Avatar size="sm" className="rounded-lg">
-                          <AvatarFallback aria-hidden className="rounded-lg">
-                            {initials(member.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="min-w-0">
-                          <span className="block truncate text-[0.8125rem] font-semibold text-ink">
-                            {member.name}
-                          </span>
-                          <span className="block truncate text-[0.6875rem] text-ink-tertiary">
-                            {allocation.seniority} · {allocation.timezone}
-                          </span>
-                        </span>
-                        {peak > 45 && (
-                          <Badge variant="danger" size="sm" data-tabular className="ml-auto">
-                            {peak}h
-                          </Badge>
-                        )}
-                      </span>
-                    </th>
+                  <li key={s.id} className="flex flex-col gap-3 p-5">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Avatar className="size-9">
+                        {s.profiles?.avatar_url && <AvatarImage src={s.profiles.avatar_url} alt="" />}
+                        <AvatarFallback>{initials(name)}</AvatarFallback>
+                      </Avatar>
 
-                    {allocation.daily.map((hours, i) => {
-                      const day = i + 1;
-                      const percent = dayPercent(hours);
-                      const band = bandFor(percent);
-                      return (
-                        <td key={day} className="p-0.5">
-                          {/* Title carries the figure for pointer users; the
-                              sr-only text carries it for everyone else. Nothing
-                              here relies on colour alone. */}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink">{name}</p>
+                        <p className="truncate text-xs text-ink-tertiary">
+                          {s.display_role}
+                          {s.department ? ` · ${s.department}` : ""}
+                          {s.profiles?.timezone ? ` · ${s.profiles.timezone.replace("_", " ")}` : ""}
+                        </p>
+                      </div>
+
+                      <span data-tabular className="text-sm text-ink-secondary">
+                        {assigned}h / {capacity}h
+                      </span>
+                      <Badge variant={bandMeta[band].tone} size="sm">
+                        {band === "unscheduled" ? bandMeta[band].label : `${s.utilisation.pct ?? 0}%`}
+                      </Badge>
+                      <Button variant="ghost" size="xs" onClick={() => setAssigning(s)}>
+                        <Plus />
+                        Assign
+                      </Button>
+                    </div>
+
+                    {/* Stacked: one segment per project, so the total is
+                        visibly the sum of its parts rather than a lone number. */}
+                    <div className="relative">
+                      <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-sunken">
+                        {mine.map((a) => (
                           <span
-                            title={`${member.name}, ${day} ${monthLabel}: ${hours}h (${percent}%)`}
-                            className={cn(
-                              "block h-9 w-full rounded-sm transition-colors duration-(--duration-fast)",
-                              bandMeta[band].cell
-                            )}
-                          >
-                            <span className="sr-only">
-                              {day} {monthLabel}: {hours} hours, {percent}% of capacity,{" "}
-                              {bandMeta[band].label}
+                            key={a.id}
+                            className={cn(projectHue.get(a.projectId) ?? "bg-brand", "h-full")}
+                            style={{ width: `${(a.hoursPerWeek / scale) * 100}%` }}
+                            title={`${a.projectName}: ${a.hoursPerWeek}h`}
+                          />
+                        ))}
+                      </div>
+                      {capacity > 0 && assigned > capacity && (
+                        <span
+                          className="absolute top-0 h-3 w-px bg-ink"
+                          style={{ left: `${(capacity / scale) * 100}%` }}
+                          aria-hidden
+                        />
+                      )}
+                    </div>
+
+                    {mine.length === 0 ? (
+                      <p className="text-xs text-ink-tertiary">No current assignments.</p>
+                    ) : (
+                      <ul className="flex flex-wrap gap-2">
+                        {mine.map((a) => (
+                          <li key={a.id}>
+                            <span className="flex items-center gap-1.5 rounded-lg border border-line-subtle bg-surface-sunken px-2 py-1 text-xs">
+                              <span
+                                className={cn(
+                                  "size-2 rounded-full",
+                                  projectHue.get(a.projectId) ?? "bg-brand"
+                                )}
+                                aria-hidden
+                              />
+                              <span className="text-ink">{a.projectName}</span>
+                              <span className="text-ink-tertiary">{a.hoursPerWeek}h</span>
+                              {a.roleOnProject && (
+                                <span className="text-ink-tertiary">· {a.roleOnProject}</span>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-danger"
+                                disabled={busy}
+                                onClick={() => run(() => removeAssignment(a.id), "Assignment removed")}
+                                aria-label={`Remove ${name} from ${a.projectName}`}
+                              >
+                                <Trash2 />
+                              </Button>
                             </span>
-                          </span>
-                        </td>
-                      );
-                    })}
-                  </tr>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
-        {rows.length === 0 && (
-          <p className="px-6 py-16 text-center text-ink-tertiary">
-            No specialists match those filters.
-          </p>
-        )}
-      </Card>
+      <p className="flex items-start gap-2 text-xs text-ink-tertiary">
+        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        Hours are recorded per week per assignment. This view does not break
+        them down by day, because nothing in the system records which day the
+        work happens.
+      </p>
+
+      {/* ------------------------------------------------------ assignment -- */}
+      <Dialog open={assigning !== null} onOpenChange={(o) => !o && setAssigning(null)}>
+        <DialogContent>
+          {assigning && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const form = new FormData(e.currentTarget);
+                form.set("profileId", assigning.id);
+                if (await run(() => saveAssignment(form), "Assignment saved")) setAssigning(null);
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>Assign {assigning.profiles?.full_name || assigning.slug}</DialogTitle>
+                <DialogDescription>
+                  {assigning.utilisation.assignedHours}h of{" "}
+                  {assigning.utilisation.capacityHours}h currently booked.
+                  Assigning to a project they are already on updates the
+                  existing hours rather than adding a second entry.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="a-project">Project</Label>
+                  <select
+                    id="a-project"
+                    name="projectId"
+                    required
+                    className="h-9.5 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink"
+                  >
+                    <option value="">Choose a project…</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="a-hours">Hours per week</Label>
+                    <Input
+                      id="a-hours"
+                      name="hoursPerWeek"
+                      type="number"
+                      min="0"
+                      max="168"
+                      step="0.5"
+                      defaultValue={8}
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="a-role">Role on project</Label>
+                    <Input id="a-role" name="roleOnProject" placeholder="Tech lead, QA…" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="a-start">Starts</Label>
+                    <Input id="a-start" name="startsOn" type="date" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="a-end">Ends</Label>
+                    <Input id="a-end" name="endsOn" type="date" />
+                  </div>
+                </div>
+                <p className="text-xs text-ink-tertiary">
+                  Leave the dates empty for an open-ended assignment. Only
+                  assignments live today count toward utilisation.
+                </p>
+              </DialogBody>
+              <DialogFooter>
+                <DialogClose render={<Button variant="ghost" type="button" />}>Cancel</DialogClose>
+                <Button type="submit" disabled={busy}>
+                  {busy ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <Check />}
+                  Save assignment
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-/** A real <label> wrapper — a <span> leaves the select with no accessible name. */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = React.useId();
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="ml-1 text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase">
+    <div className="flex flex-col gap-1.5">
+      <label
+        htmlFor={id}
+        className="ml-1 text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase"
+      >
         {label}
-      </span>
-      {children}
-    </label>
+      </label>
+      {React.isValidElement(children)
+        ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id })
+        : children}
+    </div>
   );
 }
 
@@ -256,20 +493,19 @@ function Select({
   value,
   onChange,
   children,
+  id,
 }: {
   value: string;
   onChange: (v: string) => void;
   children: React.ReactNode;
+  id?: string;
 }) {
   return (
     <select
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        "h-9.5 min-w-44 cursor-pointer rounded-lg border border-line bg-surface-sunken px-3",
-        "text-[0.8125rem] font-medium text-ink transition-colors hover:border-line-strong",
-        "focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none"
-      )}
+      className="h-9.5 min-w-44 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink"
     >
       {children}
     </select>

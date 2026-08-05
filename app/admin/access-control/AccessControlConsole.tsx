@@ -573,7 +573,11 @@ export function AccessControlConsole({ snapshot }: { snapshot: AccessControlSnap
         <div
           role="status"
           className={cn(
-            "sticky bottom-4 z-30 mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3",
+            // bottom-4 put this underneath the floating status dock, which is
+            // fixed at the same offset with a higher z-index — the Deploy
+            // button was reachable by keyboard but covered by the dock at
+            // narrow widths. Clearing the dock's height fixes both.
+            "sticky bottom-24 z-30 mr-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3 sm:bottom-20 lg:mx-auto",
             "rounded-xl border border-brand-line bg-surface-raised/95 px-4 py-3 shadow-e4 backdrop-blur",
             "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2"
           )}
