@@ -3,6 +3,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { getPublishedPage } from "@/lib/supabase/page-actions";
+
 import { RouteScaffold } from "@/components/shared/RouteScaffold";
 import {
   CheckCircle2,
@@ -32,13 +35,31 @@ export function generateStaticParams() {
   return studies.filter((s) => s.detail).map((s) => ({ slug: s.slug }));
 }
 
-export function generateMetadata({ params }: Props): Metadata {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const cms = await getPublishedPage(`case-studies/${params.slug}`);
+  if (cms) {
+    const seo = cms.seo as { title?: string; description?: string };
+    return { title: seo.title || cms.title, description: seo.description };
+  }
+
   const study = studies.find((s) => s.slug === params.slug);
   if (!study?.detail) return { title: "Case study" };
   return { title: study.detail.headline, description: study.blurb };
 }
 
-export default function CaseStudyDetailPage({ params }: Props) {
+export default async function CaseStudyDetailPage({ params }: Props) {
+  // A CMS case study wins. Checking first means an editor can publish a new one
+  // without a developer, and can replace a hand-built study by publishing at
+  // the same slug — while every link already in the archive keeps working.
+  const cms = await getPublishedPage(`case-studies/${params.slug}`);
+  if (cms) {
+    return (
+      <main>
+        <BlockRenderer blocks={cms.blocks} />
+      </main>
+    );
+  }
+
   const study = studies.find((s) => s.slug === params.slug);
 
   // Unknown slug is not found. A real study whose long-form content is not
