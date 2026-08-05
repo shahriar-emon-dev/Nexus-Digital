@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useRealtime } from "@/lib/supabase/use-realtime";
 
 import * as React from "react";
 import { ArrowUp } from "lucide-react";
@@ -55,37 +55,13 @@ export function AdminCommandBar({ metrics }: { metrics?: CommandBarMetrics }) {
   // Realtime: recording a payment or issuing an invoice updates the bar on
   // every open admin page without a reload. Scoped to the two tables the
   // figures derive from rather than a blanket subscription.
-  // Realtime authorises its socket separately from PostgREST, and the token
-  // must reach it BEFORE subscribe(). Setting it via onAuthStateChange loses
-  // that race: the channel reached SUBSCRIBED and then received nothing,
-  // silently, because RLS evaluated it as anon.
-  React.useEffect(() => {
-    const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | undefined;
-    let cancelled = false;
-
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      await supabase.realtime.setAuth(data.session?.access_token ?? null);
-      if (cancelled) return;
-
-      channel = supabase
-        .channel("admin:metrics")
-        .on("postgres_changes", { event: "*", schema: "public", table: "invoice_payments" }, () =>
-          router.refresh()
-        )
-        .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () =>
-          router.refresh()
-        )
-        .subscribe();
-    })();
-
-    return () => {
-      cancelled = true;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [router]);
+  // Recording a payment or issuing an invoice updates the bar on every open
+  // admin page. Scoped to the two tables the figures derive from.
+  useRealtime(
+    "admin:metrics",
+    [{ table: "invoice_payments" }, { table: "invoices" }],
+    () => router.refresh()
+  );
   const [view, setView] = React.useState<(typeof views)[number]>("Admin");
 
   return (

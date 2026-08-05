@@ -34,7 +34,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { createClient } from "@/lib/supabase/client";
+import { useRealtime } from "@/lib/supabase/use-realtime";
 import {
   deleteMedia,
   updateMedia,
@@ -76,19 +76,8 @@ export function MediaLibrary({
 
   React.useEffect(() => setAssets(initialAssets), [initialAssets]);
 
-  /** Targeted subscription: an upload in another tab appears here immediately. */
-  React.useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("admin:media")
-      .on("postgres_changes", { event: "*", schema: "public", table: "media_assets" }, () =>
-        router.refresh()
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [router]);
+  /** An upload in another tab, or by another editor, appears here immediately. */
+  useRealtime("admin:media", [{ table: "media_assets" }], () => router.refresh());
 
   const visible = React.useMemo(() => {
     const q = query.trim().toLowerCase();

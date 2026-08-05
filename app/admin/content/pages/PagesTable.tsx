@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
+import { useRealtime } from "@/lib/supabase/use-realtime";
 import type { PageRecord, PageStatus } from "@/lib/supabase/page-actions";
 
 const tone: Record<PageStatus, "success" | "warning" | "info" | "default"> = {
@@ -28,19 +28,8 @@ export function PagesTable({ initialPages }: { initialPages: PageRecord[] }) {
 
   React.useEffect(() => setPages(initialPages), [initialPages]);
 
-  /** Targeted subscription so a publish in another tab is reflected here. */
-  React.useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("admin:pages")
-      .on("postgres_changes", { event: "*", schema: "public", table: "pages" }, () =>
-        router.refresh()
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [router]);
+  /** A publish in another tab, or by another editor, is reflected here. */
+  useRealtime("admin:pages", [{ table: "pages" }], () => router.refresh());
 
   const visible = pages.filter((p) => {
     const q = query.trim().toLowerCase();

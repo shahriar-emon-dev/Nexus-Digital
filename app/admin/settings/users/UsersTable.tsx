@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { createClient } from "@/lib/supabase/client";
+import { useRealtime } from "@/lib/supabase/use-realtime";
 import {
   assignPortalAndRole,
   setProfileActive,
@@ -52,34 +52,20 @@ export function UsersTable({
    * Realtime across the whole table: another admin changing an assignment
    * shows up here without a reload, and only the affected row is replaced.
    */
-  React.useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("admin:profiles")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        (payload) => {
-          if (payload.eventType === "UPDATE") {
-            setProfiles((prev) =>
-              prev.map((p) =>
-                p.id === (payload.new as ProfileWithOrg).id
-                  ? { ...p, ...(payload.new as ProfileWithOrg) }
-                  : p
-              )
-            );
-          } else {
-            // Insert and delete change the row set, which needs the joins.
-            router.refresh();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [router]);
+  useRealtime("admin:profiles", [{ table: "profiles" }], (payload) => {
+    if (payload.eventType === "UPDATE") {
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.id === (payload.new as ProfileWithOrg).id
+            ? { ...p, ...(payload.new as ProfileWithOrg) }
+            : p
+        )
+      );
+    } else {
+      // Insert and delete change the row set, which needs the joins.
+      router.refresh();
+    }
+  });
 
   React.useEffect(() => setProfiles(initialProfiles), [initialProfiles]);
 

@@ -13,7 +13,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { createClient } from "@/lib/supabase/client";
+import { useRealtime } from "@/lib/supabase/use-realtime";
 import {
   removeMyAvatar,
   updateMyAvatar,
@@ -55,24 +55,14 @@ export function ProfileForm({ profile }: { profile: ProfileWithOrg }) {
    * made in another tab, lands here without a reload. Only this row is
    * subscribed, and only this component's state is replaced.
    */
-  React.useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`profile:${profile.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${profile.id}` },
-        (payload) => {
-          setCurrent((prev) => ({ ...prev, ...(payload.new as ProfileWithOrg) }));
-          router.refresh(); // keeps the sidebar, which renders server-side, in step
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile.id, router]);
+  useRealtime(
+    `profile:${profile.id}`,
+    [{ table: "profiles", event: "UPDATE", filter: `id=eq.${profile.id}` }],
+    (payload) => {
+      setCurrent((prev) => ({ ...prev, ...(payload.new as ProfileWithOrg) }));
+      router.refresh(); // keeps the sidebar, which renders server-side, in step
+    }
+  );
 
   async function onSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
