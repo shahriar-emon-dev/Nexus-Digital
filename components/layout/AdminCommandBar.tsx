@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
 import * as React from "react";
 import { ArrowUp } from "lucide-react";
 
@@ -18,7 +21,55 @@ const views = ["Admin", "Client", "Staff"] as const;
  * and the platform-wide controls. Sticky, so the numbers stay in reach while
  * scrolling long tables.
  */
-export function AdminCommandBar() {
+/**
+ * Both figures are derived from invoice_totals and refresh over realtime, so
+ * recording a payment updates every admin page without a reload. They are
+ * passed in rather than fetched here because this is a client component inside
+ * the admin layout — the layout owns the query.
+ */
+export type CommandBarMetrics = {
+  monthlyRevenue: number;
+  revenueChangePct: number | null;
+  pipeline: number;
+  pipelineCount: number;
+};
+
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+/** Compact above six figures, because the bar has one line to work with. */
+function compact(n: number) {
+  return n >= 1_000_000
+    ? `$${(n / 1_000_000).toFixed(1)}M`
+    : n >= 100_000
+      ? `$${Math.round(n / 1000)}K`
+      : money.format(n);
+}
+
+export function AdminCommandBar({ metrics }: { metrics?: CommandBarMetrics }) {
+  const router = useRouter();
+
+  // Realtime: recording a payment or issuing an invoice updates the bar on
+  // every open admin page without a reload. Scoped to the two tables the
+  // figures derive from rather than a blanket subscription.
+  React.useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin:metrics")
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoice_payments" }, () =>
+        router.refresh()
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () =>
+        router.refresh()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
   const [view, setView] = React.useState<(typeof views)[number]>("Admin");
 
   return (
@@ -69,12 +120,22 @@ export function AdminCommandBar() {
                 data-tabular
                 className="font-heading text-[1.375rem] leading-none font-bold text-brand"
               >
-                $142,500
+                {metrics ? compact(metrics.monthlyRevenue) : "—"}
               </span>
-              <Badge variant="success" size="sm">
-                <ArrowUp aria-hidden />
-                12%
-              </Badge>
+              {/* No prior month means no honest comparison, so the badge is
+                  omitted rather than showing a fabricated increase. */}
+              {metrics?.revenueChangePct != null && (
+                <Badge
+                  variant={metrics.revenueChangePct >= 0 ? "success" : "danger"}
+                  size="sm"
+                >
+                  <ArrowUp
+                    aria-hidden
+                    className={metrics.revenueChangePct < 0 ? "rotate-180" : undefined}
+                  />
+                  {Math.abs(metrics.revenueChangePct)}%
+                </Badge>
+              )}
             </dd>
           </div>
 
@@ -87,10 +148,12 @@ export function AdminCommandBar() {
                 data-tabular
                 className="font-heading text-[1.375rem] leading-none font-bold text-ion"
               >
-                $2.1M
+                {metrics ? compact(metrics.pipeline) : "—"}
               </span>
               <Badge variant="ion" size="sm">
-                Active
+                {metrics
+                  ? `${metrics.pipelineCount} open`
+                  : "Active"}
               </Badge>
             </dd>
           </div>

@@ -141,6 +141,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      invoices: {
+        Row: { created_at: string; created_by: string | null; currency: string; discount_pct: number; due_date: string | null; id: string; issue_date: string; notes: string | null; number: string; organization_id: string; status: Database["public"]["Enums"]["invoice_status"]; tax_pct: number; updated_at: string };
+        Insert: { created_at?: string; created_by?: string | null; currency?: string; discount_pct?: number; due_date?: string | null; id?: string; issue_date?: string; notes?: string | null; number: string; organization_id: string; status?: Database["public"]["Enums"]["invoice_status"]; tax_pct?: number; updated_at?: string };
+        Update: { created_at?: string; created_by?: string | null; currency?: string; discount_pct?: number; due_date?: string | null; id?: string; issue_date?: string; notes?: string | null; number?: string; organization_id?: string; status?: Database["public"]["Enums"]["invoice_status"]; tax_pct?: number; updated_at?: string };
+        Relationships: [];
+      };
+      invoice_line_items: {
+        Row: { created_at: string; description: string; id: string; invoice_id: string; position: number; quantity: number; unit_price: number };
+        Insert: { created_at?: string; description: string; id?: string; invoice_id: string; position?: number; quantity?: number; unit_price?: number };
+        Update: { created_at?: string; description?: string; id?: string; invoice_id?: string; position?: number; quantity?: number; unit_price?: number };
+        Relationships: [];
+      };
+      invoice_payments: {
+        Row: { amount: number; created_at: string; id: string; invoice_id: string; method: string; paid_at: string; recorded_by: string | null; reference: string | null };
+        Insert: { amount: number; created_at?: string; id?: string; invoice_id: string; method?: string; paid_at?: string; recorded_by?: string | null; reference?: string | null };
+        Update: { amount?: number; created_at?: string; id?: string; invoice_id?: string; method?: string; paid_at?: string; recorded_by?: string | null; reference?: string | null };
+        Relationships: [];
+      };
       isolation_policies: {
         Row: {
           description: string;
@@ -449,6 +467,10 @@ export type Database = {
       };
     };
     Views: {
+      invoice_totals: {
+        Row: { discount: number | null; invoice_id: string | null; outstanding: number | null; paid: number | null; subtotal: number | null; tax: number | null; total: number | null };
+        Relationships: [];
+      };
       public_staff: {
         Row: { avatar_url: string | null; department: Database["public"]["Enums"]["department"] | null; display_order: number | null; display_role: string | null; full_name: string | null; id: string | null; skills: string[] | null; slug: string | null };
         Relationships: [];
@@ -490,6 +512,7 @@ export type Database = {
       page_status: "draft" | "published" | "scheduled" | "unpublished" | "archived";
       menu_location: "header" | "footer" | "mobile" | "utility";
       menu_item_type: "page" | "external" | "anchor";
+      invoice_status: "draft" | "sent" | "paid" | "overdue" | "void";
       department: "Architectural Council" | "Growth Operations" | "Creative Engineering" | "Core Engineering";
       milestone_status: "done" | "active" | "upcoming" | "final";
       project_status: "Active" | "On Hold" | "Completed" | "Archived";
