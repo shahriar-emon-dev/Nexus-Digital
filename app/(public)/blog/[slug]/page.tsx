@@ -3,6 +3,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { getPublishedPage } from "@/lib/supabase/page-actions";
+
 import { RouteScaffold } from "@/components/shared/RouteScaffold";
 
 import { authorFor, categoryTone, formatDate, posts } from "@/lib/posts";
@@ -20,13 +23,31 @@ export function generateStaticParams() {
   return posts.filter((p) => p.body).map((p) => ({ slug: p.slug }));
 }
 
-export function generateMetadata({ params }: Props): Metadata {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const cms = await getPublishedPage(`blog/${params.slug}`);
+  if (cms) {
+    const seo = cms.seo as { title?: string; description?: string };
+    return { title: seo.title || cms.title, description: seo.description };
+  }
+
   const post = posts.find((p) => p.slug === params.slug);
   if (!post) return { title: "Insight" };
   return { title: post.title, description: post.excerpt };
 }
 
-export default function PostPage({ params }: Props) {
+export default async function PostPage({ params }: Props) {
+  // A CMS post wins. Checking first lets an editor publish without a
+  // developer, and lets an existing post be taken over by publishing at the
+  // same slug — while every link already in the index keeps working.
+  const cms = await getPublishedPage(`blog/${params.slug}`);
+  if (cms) {
+    return (
+      <main>
+        <BlockRenderer blocks={cms.blocks} />
+      </main>
+    );
+  }
+
   const post = posts.find((p) => p.slug === params.slug);
 
   // An unknown slug is genuinely not found. A real post whose body is not
