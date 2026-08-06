@@ -4,6 +4,7 @@ import { getMyProfile } from "@/lib/supabase/profile-actions";
 import { getGrantsForRole } from "@/lib/supabase/nav-permissions";
 import { getCommandBarMetrics } from "@/lib/supabase/metrics-queries";
 import { getSidebarTelemetry } from "@/lib/supabase/infrastructure-queries";
+import { getNavBadges } from "@/lib/supabase/nav-badges";
 import { AdminCommandBar } from "@/components/layout/AdminCommandBar";
 import { SystemStatusDock } from "@/components/admin/SystemStatusDock";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,10 +29,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // a dash rather than inventing a reading.
   const telemetry = await getSidebarTelemetry();
 
+  // Open invoices and reviews awaiting moderation. RLS scopes both, so the
+  // numbers match what this role would actually find on those screens.
+  const badges = await getNavBadges();
+
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-canvas">
-        <AdminSidebar user={user} grants={grants} telemetry={telemetry} />
+        <AdminSidebar user={user} grants={grants} telemetry={telemetry} badges={badges} />
 
         {/* pt-14 clears the fixed mobile nav bar the sidebar renders below `lg`. */}
         <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">

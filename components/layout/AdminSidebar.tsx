@@ -34,7 +34,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
 import { filterSections, type Grants } from "@/lib/nav-filter";
+import type { NavBadges } from "@/lib/supabase/nav-badges";
 import { cn } from "@/lib/utils";
+
+/** Nav hrefs whose badge is a live count rather than a fixed number. */
+const BADGE_ROUTES = {
+  "/admin/invoices": "invoices",
+  "/admin/reviews": "reviews",
+} as const;
 
 export const adminSections: NavSection[] = [
   {
@@ -82,8 +89,11 @@ export const adminSections: NavSection[] = [
       },
       { href: "/admin/services", label: "Services Catalog", icon: Boxes, moduleId: "service-management", minimum: "view" },
       { href: "/admin/projects", label: "Project Templates", icon: Layers },
-      { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, badge: 4, moduleId: "financial-systems", minimum: "view" },
-      { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote, badge: 2 },
+      // No `badge:` literals here. Counts arrive from the database via
+      // `applyBadges` below — a hardcoded 4 and 2 advertised six items of
+      // outstanding work over an empty table.
+      { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, moduleId: "financial-systems", minimum: "view" },
+      { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote },
       {
         href: "/admin/content/blog",
         moduleId: "content-publishing",
@@ -131,6 +141,23 @@ export const adminSections: NavSection[] = [
 ];
 
 const defaultUser: SidebarUser = { name: "Alex Vance", role: "Executive Admin" };
+
+/**
+ * Stamps live counts onto the nav tree.
+ *
+ * Returns a new tree rather than mutating `adminSections`, which is a module
+ * level constant shared by every render — mutating it would leak one request's
+ * counts into the next person's sidebar.
+ */
+function applyBadges(sections: NavSection[], badges: NavBadges): NavSection[] {
+  return sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      const key = BADGE_ROUTES[item.href as keyof typeof BADGE_ROUTES];
+      return key ? { ...item, badge: badges[key] } : item;
+    }),
+  }));
+}
 
 /**
  * Live infrastructure readouts, pinned above the navigation.
@@ -207,6 +234,7 @@ export function AdminSidebar({
   user = defaultUser,
   grants,
   telemetry = null,
+  badges = {},
 }: {
   user?: SidebarUser;
   /** Plain `moduleId -> level` map. Filtering happens here, not on the server:
@@ -214,10 +242,12 @@ export function AdminSidebar({
   grants?: Grants;
   /** Measured readouts. Null when the caller cannot read Postgres statistics. */
   telemetry?: SidebarTelemetry;
+  /** Live counts for the nav badges, scoped by RLS to what this role can see. */
+  badges?: NavBadges;
 }) {
   const visible = React.useMemo(
-    () => filterSections(adminSections, grants ?? {}),
-    [grants]
+    () => filterSections(applyBadges(adminSections, badges), grants ?? {}),
+    [grants, badges]
   );
 
   return (

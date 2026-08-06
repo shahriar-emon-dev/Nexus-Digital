@@ -71,7 +71,23 @@ export function Sidebar({
   className?: string;
 }) {
   const pathname = usePathname();
+
+  // Persisted for the same reason group expansion is: collapsing the rail to an
+  // icon strip and then reloading used to hand it back expanded, so the same
+  // route rendered two different sidebars depending on how recently you had
+  // reloaded. Starts false on both server and client so hydration matches, and
+  // the stored choice is applied after mount.
   const [collapsed, setCollapsed] = React.useState(false);
+  React.useEffect(() => {
+    setCollapsed(readRailCollapsed());
+  }, []);
+
+  const toggleCollapsed = React.useCallback(() => {
+    setCollapsed((previous) => {
+      writeRailCollapsed(!previous);
+      return !previous;
+    });
+  }, []);
 
   return (
     <>
@@ -93,7 +109,7 @@ export function Sidebar({
           variant="ghost"
           size="icon-xs"
           className="ml-auto hidden lg:inline-flex"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={toggleCollapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!collapsed}
         >
@@ -240,10 +256,63 @@ function NavSections({
   );
 }
 
+/** Where a person's collapse choices live, so the rail survives a reload. */
+const GROUP_PREFS_KEY = "nexus:sidebar-groups";
+const RAIL_KEY = "nexus:sidebar-collapsed";
+
+function readRailCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeRailCollapsed(collapsed: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RAIL_KEY, collapsed ? "1" : "0");
+  } catch {
+    /* Preference is a nicety; failing to store it changes nothing else. */
+  }
+}
+
+function readGroupPrefs(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(GROUP_PREFS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  } catch {
+    // A corrupt or blocked localStorage must not take the navigation with it.
+    return {};
+  }
+}
+
+function writeGroupPref(href: string, open: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    const next = { ...readGroupPrefs(), [href]: open };
+    window.localStorage.setItem(GROUP_PREFS_KEY, JSON.stringify(next));
+  } catch {
+    /* Preference is a nicety; failing to store it changes nothing else. */
+  }
+}
+
 /**
- * A nav item with sub-items. Opens itself when the current route is inside it,
- * so a deep link never lands with its own section collapsed, and stays
- * open/closed by hand after that.
+ * A nav item with sub-items.
+ *
+ * Expansion is DETERMINISTIC: the same route renders the same rail every time.
+ * It previously seeded `useState(inside)` from the route and had an effect that
+ * only ever opened groups, never closed them — so /admin showed 23 links on a
+ * fresh load and 25 after you had visited Staff, and a person comparing two
+ * tabs saw two different sidebars. Nothing was broken enough to notice, which
+ * is why it survived.
+ *
+ * The rule now: groups are open by default so every destination is visible at a
+ * glance, a person may collapse any of them and that choice persists, and the
+ * section containing the current route is always forced open so a deep link
+ * never lands hidden.
  */
 function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
   const children = item.children ?? [];
@@ -256,11 +325,20 @@ function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
     (c) => pathname === c.href || pathname.startsWith(`${c.href}/`)
   );
 
-  const [open, setOpen] = React.useState(inside);
-  // A client-side navigation into the group should reveal it.
+  // Starts at the default on both server and client, so hydration matches;
+  // stored preferences are applied after mount rather than read during render.
+  const [preference, setPreference] = React.useState<boolean | null>(null);
   React.useEffect(() => {
-    if (inside) setOpen(true);
-  }, [inside]);
+    const stored = readGroupPrefs()[item.href];
+    setPreference(typeof stored === "boolean" ? stored : null);
+  }, [item.href]);
+
+  const open = inside || (preference ?? true);
+
+  const setOpen = (next: boolean) => {
+    setPreference(next);
+    writeGroupPref(item.href, next);
+  };
 
   const panelId = `nav-${item.href.replace(/\W+/g, "-")}`;
 
@@ -279,10 +357,17 @@ function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
         />
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(!open)}
+          // Forced open while you are inside the section, so the control
+          // cannot hide the page you are currently looking at.
+          disabled={inside}
           aria-expanded={open}
           aria-controls={panelId}
-          aria-label={`${open ? "Collapse" : "Expand"} ${item.label}`}
+          aria-label={
+            inside
+              ? `${item.label} stays open while you are in this section`
+              : `${open ? "Collapse" : "Expand"} ${item.label}`
+          }
           className={cn(
             "grid w-7 shrink-0 place-items-center rounded-lg text-ink-tertiary",
             "transition-colors duration-(--duration-fast) hover:bg-surface-sunken hover:text-ink",
