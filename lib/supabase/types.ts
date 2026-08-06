@@ -131,6 +131,47 @@ export type Database = {
         }
         Relationships: []
       }
+      capabilities: {
+        Row: {
+          created_at: string
+          description: string
+          display_order: number
+          id: string
+          is_high_risk: boolean
+          label: string
+          minimum_level: Database["public"]["Enums"]["access_level"]
+          module_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          display_order?: number
+          id: string
+          is_high_risk?: boolean
+          label: string
+          minimum_level: Database["public"]["Enums"]["access_level"]
+          module_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          display_order?: number
+          id?: string
+          is_high_risk?: boolean
+          label?: string
+          minimum_level?: Database["public"]["Enums"]["access_level"]
+          module_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capabilities_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "permission_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           created_at: string
@@ -884,6 +925,13 @@ export type Database = {
             foreignKeyName: "profiles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "role_capabilities"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "profiles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -1314,6 +1362,13 @@ export type Database = {
             foreignKeyName: "role_grants_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "role_capabilities"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "role_grants_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -1321,25 +1376,40 @@ export type Database = {
       }
       roles: {
         Row: {
+          accent: string | null
           created_at: string
           description: string
           id: string
           is_system: boolean
+          level: number | null
           name: string
+          required_clearance: number | null
+          required_skills: string[]
+          tags: string[]
         }
         Insert: {
+          accent?: string | null
           created_at?: string
           description?: string
           id: string
           is_system?: boolean
+          level?: number | null
           name: string
+          required_clearance?: number | null
+          required_skills?: string[]
+          tags?: string[]
         }
         Update: {
+          accent?: string | null
           created_at?: string
           description?: string
           id?: string
           is_system?: boolean
+          level?: number | null
           name?: string
+          required_clearance?: number | null
+          required_skills?: string[]
+          tags?: string[]
         }
         Relationships: []
       }
@@ -1369,6 +1439,7 @@ export type Database = {
           geo_fencing_enabled: boolean
           geo_regions: string[]
           id: boolean
+          inherit_permissions: boolean
           ip_allow_list: string[]
           password_rules: Json
           session_timeout_minutes: number
@@ -1380,6 +1451,7 @@ export type Database = {
           geo_fencing_enabled?: boolean
           geo_regions?: string[]
           id?: boolean
+          inherit_permissions?: boolean
           ip_allow_list?: string[]
           password_rules?: Json
           session_timeout_minutes?: number
@@ -1391,6 +1463,7 @@ export type Database = {
           geo_fencing_enabled?: boolean
           geo_regions?: string[]
           id?: boolean
+          inherit_permissions?: boolean
           ip_allow_list?: string[]
           password_rules?: Json
           session_timeout_minutes?: number
@@ -1628,8 +1701,124 @@ export type Database = {
           },
         ]
       }
+      temporary_grants: {
+        Row: {
+          created_at: string
+          expires_at: string
+          granted_by: string | null
+          id: string
+          level: Database["public"]["Enums"]["access_level"]
+          module_id: string
+          profile_id: string
+          reason: string
+          revoked_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          granted_by?: string | null
+          id?: string
+          level: Database["public"]["Enums"]["access_level"]
+          module_id: string
+          profile_id: string
+          reason?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          granted_by?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["access_level"]
+          module_id?: string
+          profile_id?: string
+          reason?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temporary_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_grants_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "permission_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
+      active_temporary_grants: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          granted_by: string | null
+          id: string | null
+          level: Database["public"]["Enums"]["access_level"] | null
+          module_id: string | null
+          profile_id: string | null
+          reason: string | null
+          seconds_remaining: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string | null
+          level?: Database["public"]["Enums"]["access_level"] | null
+          module_id?: string | null
+          profile_id?: string | null
+          reason?: string | null
+          seconds_remaining?: never
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string | null
+          level?: Database["public"]["Enums"]["access_level"] | null
+          module_id?: string | null
+          profile_id?: string | null
+          reason?: string | null
+          seconds_remaining?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temporary_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_grants_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "permission_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_project_counts: {
         Row: {
           active_project_count: number | null
@@ -1766,6 +1955,26 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "resolved_menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_capabilities: {
+        Row: {
+          capability_id: string | null
+          current_level: Database["public"]["Enums"]["access_level"] | null
+          granted: boolean | null
+          is_high_risk: boolean | null
+          minimum_level: Database["public"]["Enums"]["access_level"] | null
+          module_id: string | null
+          role_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capabilities_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "permission_modules"
             referencedColumns: ["id"]
           },
         ]

@@ -10,8 +10,14 @@ import io
 import json
 import sys
 
-data = json.load(io.open(sys.argv[1], encoding="utf-8"))
-types = json.loads(data[0]["text"])["types"]
+raw = io.open(sys.argv[1], encoding="utf-8").read()
+data = json.loads(raw)
+
+# The tool returns either a bare {"types": ...} object or the MCP envelope
+# [{"type": "text", "text": "<json string>"}] depending on payload size.
+if isinstance(data, list):
+    data = json.loads(data[0]["text"])
+types = data["types"]
 
 HEAD = '''/**
  * Generated from the live schema - do not edit above the aliases block.
