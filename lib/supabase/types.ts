@@ -129,15 +129,7 @@ export type Database = {
           severity?: string
           summary?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "audit_log_actor_id_fkey"
-            columns: ["actor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       invoice_line_items: {
         Row: {
