@@ -993,6 +993,13 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "project_assignments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_delivery_history"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       project_milestones: {
@@ -1058,6 +1065,60 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_delivery_history"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      project_services: {
+        Row: {
+          created_at: string
+          project_id: string
+          service_page_id: string
+        }
+        Insert: {
+          created_at?: string
+          project_id: string
+          service_page_id: string
+        }
+        Update: {
+          created_at?: string
+          project_id?: string
+          service_page_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_services_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_progress"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_services_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_services_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_delivery_history"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_services_service_page_id_fkey"
+            columns: ["service_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
             referencedColumns: ["id"]
           },
         ]
@@ -1127,12 +1188,20 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_delivery_history"
+            referencedColumns: ["project_id"]
+          },
         ]
       }
       projects: {
         Row: {
           budget_spent: number
           budget_total: number
+          case_study_page_id: string | null
           created_at: string
           description: string
           featured: boolean
@@ -1141,6 +1210,7 @@ export type Database = {
           lead_id: string | null
           name: string
           organization_id: string
+          reference: string | null
           slug: string
           stage: string
           start_date: string | null
@@ -1152,6 +1222,7 @@ export type Database = {
         Insert: {
           budget_spent?: number
           budget_total?: number
+          case_study_page_id?: string | null
           created_at?: string
           description?: string
           featured?: boolean
@@ -1160,6 +1231,7 @@ export type Database = {
           lead_id?: string | null
           name: string
           organization_id: string
+          reference?: string | null
           slug: string
           stage?: string
           start_date?: string | null
@@ -1171,6 +1243,7 @@ export type Database = {
         Update: {
           budget_spent?: number
           budget_total?: number
+          case_study_page_id?: string | null
           created_at?: string
           description?: string
           featured?: boolean
@@ -1179,6 +1252,7 @@ export type Database = {
           lead_id?: string | null
           name?: string
           organization_id?: string
+          reference?: string | null
           slug?: string
           stage?: string
           start_date?: string | null
@@ -1188,6 +1262,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_case_study_page_id_fkey"
+            columns: ["case_study_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_lead_id_fkey"
             columns: ["lead_id"]
@@ -1328,6 +1409,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "service_delivery_history"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -1981,6 +2069,38 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "permission_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_delivery_history: {
+        Row: {
+          budget_total: number | null
+          case_study_page_id: string | null
+          case_study_published: boolean | null
+          case_study_slug: string | null
+          client_name: string | null
+          name: string | null
+          project_id: string | null
+          reference: string | null
+          service_page_id: string | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["project_status"] | null
+          target_end: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_services_service_page_id_fkey"
+            columns: ["service_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_case_study_page_id_fkey"
+            columns: ["case_study_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
             referencedColumns: ["id"]
           },
         ]
