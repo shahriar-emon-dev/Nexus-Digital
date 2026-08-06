@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { assertNotLeaked } from "./password-safety";
 import { createClient } from "./server";
 import type { Portal } from "./types";
 
@@ -76,6 +77,12 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
   if (!email || !password) return { error: "Enter your email and password." };
   if (password.length < 12) return { error: "Use at least 12 characters." };
 
+  // Supabase Auth checks this natively only on the Pro plan, and this project
+  // is on Free — so the check runs here. Only a SHA-1 prefix leaves the
+  // server; see password-safety.ts.
+  const leaked = await assertNotLeaked(password);
+  if (leaked) return { error: leaked };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
@@ -118,6 +125,11 @@ export async function requestPasswordReset(formData: FormData): Promise<AuthResu
 export async function updatePassword(formData: FormData): Promise<AuthResult> {
   const password = String(formData.get("password") ?? "");
   if (password.length < 12) return { error: "Use at least 12 characters." };
+
+  // A reset is the moment someone is most likely to reach for a password they
+  // already use elsewhere, which is exactly what a breach corpus catches.
+  const leaked = await assertNotLeaked(password);
+  if (leaked) return { error: leaked };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
