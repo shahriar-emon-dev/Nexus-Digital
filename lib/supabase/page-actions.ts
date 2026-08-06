@@ -20,7 +20,13 @@ export type BlockKind =
   | "faq"
   | "richText"
   | "testimonials"
-  | "cta";
+  | "cta"
+  // Added for the service page design: an impact panel, a partner strip and a
+  // delivery roadmap. Blocks are JSONB, so new kinds need a renderer and a
+  // catalogue entry — never a migration.
+  | "stats"
+  | "logos"
+  | "timeline";
 
 export type PageBlock = {
   id: string;

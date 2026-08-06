@@ -63,6 +63,9 @@ const BLOCK_CATALOGUE: { kind: PageBlock["kind"]; name: string; required?: boole
   { kind: "richText", name: "Rich text" },
   { kind: "testimonials", name: "Testimonials" },
   { kind: "cta", name: "Closing call to action" },
+  { kind: "stats", name: "Impact panel" },
+  { kind: "logos", name: "Partner strip" },
+  { kind: "timeline", name: "Delivery roadmap" },
 ];
 
 /**
@@ -98,6 +101,9 @@ const FIELDS: Record<
     { key: "ctaLabel", label: "Button label" },
     { key: "ctaHref", label: "Button URL" },
   ],
+  stats: [{ key: "heading", label: "Heading" }],
+  logos: [{ key: "heading", label: "Heading" }],
+  timeline: [{ key: "heading", label: "Heading" }],
 };
 
 /**
@@ -122,6 +128,7 @@ const ITEM_SCHEMA: Partial<
     fields: [
       { key: "title", label: "Title" },
       { key: "body", label: "Description", long: true },
+      { key: "tags", label: "Tags (comma separated)" },
     ],
   },
   pricing: {
@@ -155,6 +162,27 @@ const ITEM_SCHEMA: Partial<
       { key: "quote", label: "Quote", long: true },
       { key: "name", label: "Name" },
       { key: "role", label: "Role and company" },
+    ],
+  },
+  stats: {
+    singular: "metric",
+    fields: [
+      { key: "label", label: "Metric" },
+      { key: "value", label: "Value" },
+      // Optional. A metric without one renders no bar rather than a guessed
+      // width, so the bar can never imply a precision the figure lacks.
+      { key: "percent", label: "Bar fill % (optional)" },
+    ],
+  },
+  logos: {
+    singular: "partner",
+    fields: [{ key: "name", label: "Partner name" }],
+  },
+  timeline: {
+    singular: "step",
+    fields: [
+      { key: "title", label: "Step title" },
+      { key: "body", label: "What happens", long: true },
     ],
   },
 };

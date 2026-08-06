@@ -107,6 +107,23 @@ function FeatureGrid({ data }: { data: Data }) {
                 <p className="mt-2 text-sm leading-relaxed text-ink-tertiary">
                   {str(item, "body")}
                 </p>
+                {/* Comma-separated in the editor: one field an author can fill
+                    without learning a repeater for two words. */}
+                {str(item, "tags") && (
+                  <ul className="mt-4 flex flex-wrap gap-1.5">
+                    {str(item, "tags")
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean)
+                      .map((tag) => (
+                        <li key={tag}>
+                          <Badge variant="outline" size="sm" className="font-mono">
+                            {tag}
+                          </Badge>
+                        </li>
+                      ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </li>
@@ -276,10 +293,112 @@ function Cta({ data }: { data: Data }) {
   );
 }
 
+
+/**
+ * Measured outcomes. Each row is a label and a value the author typed — the
+ * optional bar is a visual echo of `percent`, never a second source of truth,
+ * so a row without one simply has no bar rather than a guessed width.
+ */
+function Stats({ data }: { data: Data }) {
+  const items = list(data, "items");
+  return (
+    <Section>
+      <div className="mx-auto max-w-3xl rounded-2xl border border-line bg-surface-raised p-8">
+        {str(data, "heading") && (
+          <h2 className="mb-8 font-heading text-2xl font-bold tracking-tight text-ink">
+            {str(data, "heading")}
+          </h2>
+        )}
+        <dl className="flex flex-col gap-6">
+          {items.map((item, i) => {
+            const raw = Number(str(item, "percent"));
+            const percent = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : null;
+            return (
+              <div key={i}>
+                <div className="flex items-end justify-between gap-4">
+                  <dt className="font-mono text-sm text-ink-tertiary">{str(item, "label")}</dt>
+                  <dd className="font-heading text-xl font-bold text-ink">{str(item, "value")}</dd>
+                </div>
+                {percent !== null && (
+                  <div
+                    className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-sunken"
+                    role="presentation"
+                  >
+                    <div className="h-full rounded-full bg-brand" style={{ width: `${percent}%` }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </dl>
+      </div>
+    </Section>
+  );
+}
+
+/** A partner or integration strip. Names, because a logo needs an asset. */
+function Logos({ data }: { data: Data }) {
+  const items = list(data, "items");
+  if (items.length === 0) return <></>;
+  return (
+    <Section tone="sunken">
+      {str(data, "heading") && (
+        <p className="mb-8 text-center text-xs font-semibold tracking-widest text-ink-tertiary uppercase">
+          {str(data, "heading")}
+        </p>
+      )}
+      <ul className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
+        {items.map((item, i) => (
+          <li key={i} className="font-heading text-lg font-bold text-ink-tertiary">
+            {str(item, "name")}
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+/**
+ * A delivery roadmap. Steps are numbered from their position, so inserting one
+ * renumbers the rest automatically rather than leaving an author to renumber
+ * by hand and eventually ship two "03"s.
+ */
+function Timeline({ data }: { data: Data }) {
+  const items = list(data, "items");
+  return (
+    <Section>
+      {str(data, "heading") && (
+        <h2 className="mb-12 text-center font-heading text-3xl font-bold tracking-tight text-ink">
+          {str(data, "heading")}
+        </h2>
+      )}
+      <ol className="mx-auto flex max-w-3xl flex-col gap-8">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-5">
+            <span className="flex flex-col items-center">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full border-2 border-brand bg-surface font-mono text-sm font-bold text-brand">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              {i < items.length - 1 && <span className="mt-1 w-px flex-1 bg-line" aria-hidden />}
+            </span>
+            <div className="pb-2">
+              <h3 className="font-heading text-lg font-semibold text-ink">{str(item, "title")}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-ink-tertiary">{str(item, "body")}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Section>
+  );
+}
+
 const registry: Record<BlockKind, (p: { data: Data }) => React.ReactElement> = {
   hero: Hero,
   featureGrid: FeatureGrid,
   pricing: Pricing,
+  stats: Stats,
+  logos: Logos,
+  timeline: Timeline,
   faq: Faq,
   richText: RichText,
   testimonials: Testimonials,
