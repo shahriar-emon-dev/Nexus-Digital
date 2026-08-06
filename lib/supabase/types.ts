@@ -1541,6 +1541,8 @@ export type Database = {
       service_details: {
         Row: {
           category: string
+          cover_image_alt: string | null
+          cover_image_url: string | null
           created_at: string
           currency: string
           display_order: number
@@ -1553,6 +1555,8 @@ export type Database = {
         }
         Insert: {
           category?: string
+          cover_image_alt?: string | null
+          cover_image_url?: string | null
           created_at?: string
           currency?: string
           display_order?: number
@@ -1565,6 +1569,8 @@ export type Database = {
         }
         Update: {
           category?: string
+          cover_image_alt?: string | null
+          cover_image_url?: string | null
           created_at?: string
           currency?: string
           display_order?: number

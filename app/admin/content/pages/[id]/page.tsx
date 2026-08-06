@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { getPageDraft } from "@/lib/supabase/page-actions";
+import { getServiceConfig } from "@/lib/supabase/service-config";
 import { PageEditor } from "./PageEditor";
 
 export const metadata: Metadata = { title: "Edit page" };
@@ -10,6 +11,11 @@ export const metadata: Metadata = { title: "Edit page" };
 export default async function AdminPageEditorRoute({ params }: { params: { id: string } }) {
   const draft = await getPageDraft(params.id);
   if (!draft) notFound();
+
+  // Only a service page has catalogue fields; everything else gets the same
+  // editor without that pane rather than a second editor.
+  const serviceConfig =
+    draft.page.page_type === "service" ? await getServiceConfig(params.id) : null;
 
   return (
     <div className="flex flex-col gap-8 px-5 py-10 lg:px-10">
@@ -30,7 +36,7 @@ export default async function AdminPageEditorRoute({ params }: { params: { id: s
         </p>
       </header>
 
-      <PageEditor draft={draft} />
+      <PageEditor draft={draft} serviceConfig={serviceConfig} />
     </div>
   );
 }

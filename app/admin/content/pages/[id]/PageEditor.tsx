@@ -42,6 +42,8 @@ import {
 } from "@/lib/supabase/page-actions";
 import { MediaField } from "@/components/cms/MediaPicker";
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { ServiceConfigPane } from "@/components/cms/ServiceConfigPane";
+import type { ServiceConfig } from "@/lib/supabase/service-config";
 import { cn } from "@/lib/utils";
 
 /**
@@ -161,7 +163,14 @@ type Item = Record<string, unknown>;
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "failed";
 
-export function PageEditor({ draft }: { draft: PageDraft }) {
+export function PageEditor({
+  draft,
+  serviceConfig = null,
+}: {
+  draft: PageDraft;
+  /** Present when this page is a service, which gives the rail its extra pane. */
+  serviceConfig?: ServiceConfig | null;
+}) {
   const router = useRouter();
   const toast = useToast();
 
@@ -171,45 +180,54 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
   const [busy, setBusy] = React.useState(false);
   const [selected, setSelected] = React.useState<string | null>(draft.blocks[0]?.id ?? null);
 
-  // The last value written, so autosave never fires for an unchanged tree.
-  const lastSaved = React.useRef(JSON.stringify(draft.blocks));
+  // SEO rides the same draft row and the same autosave. saveDraft has always
+  // accepted it; nothing in the UI ever sent it, so search metadata was
+  // unreachable until the configuration pane existed.
+  const [seo, setSeo] = React.useState<Record<string, unknown>>(draft.seo ?? {});
+
+  // The last value written, so autosave never fires for unchanged content.
+  const lastSaved = React.useRef(JSON.stringify({ blocks: draft.blocks, seo: draft.seo ?? {} }));
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persist = React.useCallback(
-    async (next: PageBlock[]) => {
+    async (next: PageBlock[], nextSeo: Record<string, unknown>) => {
       setState("saving");
-      const result = await saveDraft(draft.versionId, next);
+      const result = await saveDraft(draft.versionId, next, nextSeo);
       if ("error" in result) {
         setState("failed");
         setError(result.error);
         return;
       }
-      lastSaved.current = JSON.stringify(next);
+      lastSaved.current = JSON.stringify({ blocks: next, seo: nextSeo });
       setState("saved");
       setError(null);
     },
     [draft.versionId]
   );
 
-  /** Debounced autosave. Only writes when the tree actually differs. */
+  // What publishing would actually produce. Derived once so the full-width
+  // preview and the rail cannot disagree about which blocks are live.
+  const visibleBlocks = React.useMemo(() => blocks.filter((b) => b.visible), [blocks]);
+
+  /** Debounced autosave. Only writes when the content actually differs. */
   React.useEffect(() => {
-    if (JSON.stringify(blocks) === lastSaved.current) return;
+    if (JSON.stringify({ blocks, seo }) === lastSaved.current) return;
     setState("dirty");
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void persist(blocks), 1200);
+    timer.current = setTimeout(() => void persist(blocks, seo), 1200);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [blocks, persist]);
+  }, [blocks, seo, persist]);
 
   /** Last line of defence against losing work on an accidental close. */
   React.useEffect(() => {
     const onLeave = (e: BeforeUnloadEvent) => {
-      if (JSON.stringify(blocks) !== lastSaved.current) e.preventDefault();
+      if (JSON.stringify({ blocks, seo }) !== lastSaved.current) e.preventDefault();
     };
     window.addEventListener("beforeunload", onLeave);
     return () => window.removeEventListener("beforeunload", onLeave);
-  }, [blocks]);
+  }, [blocks, seo]);
 
   /**
    * Drag-and-drop reordering.
@@ -304,7 +322,9 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
     setBusy(true);
     setError(null);
     // Flush any pending edit first, or the publish would freeze stale content.
-    if (JSON.stringify(blocks) !== lastSaved.current) await persist(blocks);
+    // This compares the SAME shape autosave stores — comparing only the blocks
+    // would miss an unsaved SEO edit and publish the previous metadata.
+    if (JSON.stringify({ blocks, seo }) !== lastSaved.current) await persist(blocks, seo);
 
     const result = await publishPage(draft.page.id, draft.page.slug);
     setBusy(false);
@@ -363,7 +383,7 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant={live ? "success" : "warning"}>{draft.page.status}</Badge>
           <code className="font-mono text-sm text-ink-secondary">/{draft.page.slug}</code>
-          <SaveIndicator state={state} onRetry={() => void persist(blocks)} />
+          <SaveIndicator state={state} onRetry={() => void persist(blocks, seo)} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -457,19 +477,37 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
               viewport === "mobile" && "max-w-sm"
             )}
           >
-            {blocks.filter((b) => b.visible).length === 0 ? (
+            {visibleBlocks.length === 0 ? (
               <p className="py-24 text-center text-sm text-ink-tertiary">
                 Every block is hidden, so the published page would be empty.
               </p>
             ) : (
-              <BlockRenderer blocks={blocks.filter((b) => b.visible)} />
+              <BlockRenderer blocks={visibleBlocks} />
             )}
           </div>
         </div>
       ) : (
-      <div className="grid gap-5 lg:grid-cols-[20rem_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[20rem_1fr] 2xl:grid-cols-[20rem_1fr_22rem]">
         {/* ------------------------------------------------ block list --- */}
         <div className="flex flex-col gap-3">
+          {/* The design's Service Configuration rail. Sits above the structure
+              list rather than replacing it — a service is a page, so both
+              belong to the same editor. */}
+          <ServiceConfigPane
+            pageId={draft.page.id}
+            config={serviceConfig}
+            seo={seo}
+            page={{
+              title: draft.page.title,
+              slug: draft.page.slug,
+              status: draft.page.status,
+            }}
+            onSeoChange={setSeo}
+            history={draft.history}
+            onRestore={restore}
+            busy={busy}
+          />
+
           <Card>
             <CardContent className="p-3">
               <ul className="flex flex-col gap-1">
@@ -688,6 +726,75 @@ export function PageEditor({ draft }: { draft: PageDraft }) {
             )}
           </CardContent>
         </Card>
+
+        {/* ------------------------------------------- live preview rail --- */}
+        {/* The design's third pane. Only at 2xl, where there is genuinely room
+            for three columns — below that the Edit/Preview toggle above still
+            gives the same view full width, rather than three cramped ones. */}
+        <aside className="hidden flex-col gap-3 2xl:flex" aria-label="Live preview">
+          <div className="flex items-center justify-between">
+            <p className="text-[0.625rem] font-semibold tracking-widest text-ink-tertiary uppercase">
+              Live preview
+            </p>
+            <div
+              role="group"
+              aria-label="Preview width"
+              className="flex rounded-lg border border-line-strong p-0.5"
+            >
+              {(
+                [
+                  ["desktop", Monitor, "Desktop"],
+                  ["tablet", Tablet, "Tablet"],
+                  ["mobile", Smartphone, "Mobile"],
+                ] as const
+              ).map(([key, Icon, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={viewport === key}
+                  aria-label={label}
+                  onClick={() => setViewport(key)}
+                  className={cn(
+                    "rounded-md p-1 transition-colors",
+                    "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                    viewport === key ? "bg-brand text-brand-fg" : "text-ink-secondary hover:text-ink"
+                  )}
+                >
+                  <Icon className="size-3" aria-hidden />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sticky top-4 overflow-hidden rounded-xl border border-line bg-canvas">
+            {/* Rendered through the SAME components the published page uses, at
+                a reduced scale — so this is what publishing produces, not a
+                sketch of it. */}
+            <div
+              className={cn(
+                "mx-auto origin-top",
+                viewport === "desktop" && "w-[220%] scale-[0.45]",
+                viewport === "tablet" && "w-[160%] scale-[0.62]",
+                viewport === "mobile" && "w-[110%] scale-[0.9]"
+              )}
+            >
+              {visibleBlocks.length === 0 ? (
+                <p className="py-24 text-center text-sm text-ink-tertiary">
+                  Every block is hidden, so the published page would be empty.
+                </p>
+              ) : (
+                <BlockRenderer blocks={visibleBlocks} />
+              )}
+            </div>
+          </div>
+
+          <p className="text-[0.6875rem] text-ink-tertiary">
+            {visibleBlocks.length} of {blocks.length}{" "}
+            {blocks.length === 1 ? "block" : "blocks"} visible
+            {blocks.length !== visibleBlocks.length && " — hidden blocks are omitted here exactly as they will be live"}
+            .
+          </p>
+        </aside>
       </div>
       )}
     </div>
