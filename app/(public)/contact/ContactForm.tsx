@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { submitLead } from "@/lib/supabase/lead-actions";
 import { CheckCircle2, Loader2, Rocket } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -34,6 +36,9 @@ export function ContactForm() {
   });
   const [errors, setErrors] = React.useState<Errors>({});
   const [status, setStatus] = React.useState<Status>("idle");
+  const [formError, setFormError] = React.useState<string | null>(null);
+  /** The stored reference, shown so a visitor can quote it back to us. */
+  const [reference, setReference] = React.useState<string | null>(null);
 
   /** Fields in visual order — focus follows the order the user reads. */
   const order: (keyof Errors)[] = ["fullName", "email", "brief"];
@@ -63,14 +68,29 @@ export function ContactForm() {
     }
 
     setStatus("submitting");
-    // TODO: POST to a real endpoint. Nothing leaves the browser today.
-    await new Promise((resolve) => setTimeout(resolve, 1400));
-    setStatus("sent");
+    setFormError(null);
 
-    setTimeout(() => {
-      setValues({ fullName: "", email: "", service: services[0], brief: "" });
+    // This used to be a 1.4s sleep and a success state. The enquiry never left
+    // the browser, so every message sent through this page was discarded.
+    const payload = new FormData();
+    payload.set("fullName", values.fullName);
+    payload.set("email", values.email);
+    payload.set("brief", values.brief);
+    payload.set("serviceIntent", values.service);
+    payload.set("source", "contact-page");
+
+    const result = await submitLead(payload);
+
+    if ("error" in result) {
       setStatus("idle");
-    }, 3000);
+      setFormError(result.error);
+      return;
+    }
+
+    // The reference comes back from the database trigger, so what the visitor
+    // is told matches what was actually stored.
+    setReference(result.data.reference);
+    setStatus("sent");
   };
 
   const field = (key: keyof Errors) => ({
@@ -173,6 +193,29 @@ export function ContactForm() {
         )}
       </div>
 
+      {formError && (
+        <p role="alert" className="rounded-lg border border-danger-line bg-danger-subtle px-4 py-3 text-sm text-danger">
+          {formError}
+        </p>
+      )}
+
+      {/* The design's success screen: a reference the visitor can quote back.
+          Shown only once the database has returned one. */}
+      {status === "sent" && reference && (
+        <div className="rounded-xl border border-success-line bg-success-subtle/40 px-5 py-4">
+          <p className="text-xs font-semibold tracking-widest text-ink-tertiary uppercase">
+            Reference code
+          </p>
+          <code data-tabular className="mt-1 block font-mono text-lg text-success">
+            {reference}
+          </code>
+          <p className="mt-2 text-sm text-ink-secondary">
+            Your enquiry is recorded. Quote this reference if you get in touch
+            before we reach you.
+          </p>
+        </div>
+      )}
+
       <Button
         type="submit"
         size="xl"
@@ -206,7 +249,8 @@ export function ContactForm() {
           announced. This region is. */}
       <p aria-live="polite" className="sr-only">
         {status === "submitting" && "Sending your message."}
-        {status === "sent" && "Message sent. We'll be in touch shortly."}
+        {status === "sent" &&
+          `Message sent. Your reference is ${reference ?? "recorded"}.`}
       </p>
     </form>
   );

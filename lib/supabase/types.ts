@@ -429,6 +429,114 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          assignee_id: string | null
+          brief: string
+          closed_at: string | null
+          company: string | null
+          contacted_at: string | null
+          created_at: string
+          currency: string
+          email: string
+          estimated_value: number | null
+          full_name: string
+          id: string
+          notes: string | null
+          organization_id: string | null
+          phone: string | null
+          project_title: string | null
+          reference: string | null
+          service_intent: string | null
+          service_page_id: string | null
+          source: string
+          status: Database["public"]["Enums"]["lead_status"]
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          brief?: string
+          closed_at?: string | null
+          company?: string | null
+          contacted_at?: string | null
+          created_at?: string
+          currency?: string
+          email: string
+          estimated_value?: number | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          project_title?: string | null
+          reference?: string | null
+          service_intent?: string | null
+          service_page_id?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          brief?: string
+          closed_at?: string | null
+          company?: string | null
+          contacted_at?: string | null
+          created_at?: string
+          currency?: string
+          email?: string
+          estimated_value?: number | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          project_title?: string | null
+          reference?: string | null
+          service_intent?: string | null
+          service_page_id?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "client_project_counts"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "client_revenue"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_service_page_id_fkey"
+            columns: ["service_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_assets: {
         Row: {
           alt_text: string | null
@@ -1978,6 +2086,22 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_pipeline: {
+        Row: {
+          contacted_count: number | null
+          conversion_pct: number | null
+          lost_count: number | null
+          new_count: number | null
+          open_count: number | null
+          open_value: number | null
+          qualified_count: number | null
+          total: number | null
+          unsized_count: number | null
+          won_count: number | null
+          won_value: number | null
+        }
+        Relationships: []
+      }
       project_progress: {
         Row: {
           milestone_done: number | null
@@ -2138,6 +2262,20 @@ export type Database = {
           total_ms: number
         }[]
       }
+      submit_lead: {
+        Args: {
+          p_brief: string
+          p_company?: string
+          p_email: string
+          p_full_name: string
+          p_phone?: string
+          p_project_title?: string
+          p_service_intent?: string
+          p_service_page?: string
+          p_source?: string
+        }
+        Returns: string
+      }
       table_statistics: {
         Args: never
         Returns: {
@@ -2169,6 +2307,7 @@ export type Database = {
         | "commercial"
         | "transactional"
         | "navigational"
+      lead_status: "new" | "contacted" | "qualified" | "won" | "lost"
       media_kind: "image" | "video" | "document" | "logo"
       menu_item_type: "page" | "external" | "anchor"
       menu_location: "header" | "footer" | "mobile" | "utility"
@@ -2326,6 +2465,7 @@ export const Constants = {
         "transactional",
         "navigational",
       ],
+      lead_status: ["new", "contacted", "qualified", "won", "lost"],
       media_kind: ["image", "video", "document", "logo"],
       menu_item_type: ["page", "external", "anchor"],
       menu_location: ["header", "footer", "mobile", "utility"],

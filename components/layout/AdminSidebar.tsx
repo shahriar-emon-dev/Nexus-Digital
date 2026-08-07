@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   SquareUser,
+  Target,
   Users,
   Wallet,
   LayoutDashboard,
@@ -75,6 +76,7 @@ export const adminSections: NavSection[] = [
           },
         ],
       },
+      { href: "/admin/leads", label: "Lead Intelligence", icon: Target, moduleId: "crm-database", minimum: "view" },
       { href: "/admin/clients", label: "Client Directory", icon: Users, moduleId: "crm-database", minimum: "view" },
       {
         href: "/admin/staff",
