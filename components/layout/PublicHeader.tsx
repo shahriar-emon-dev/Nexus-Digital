@@ -11,44 +11,49 @@ import { Dialog, DialogTrigger, Sheet } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
-const serviceGroups = [
-  {
-    label: "Core",
-    icon: LayoutGrid,
-    items: [
-      { href: "/services/ux-ui-design", label: "UX/UI Design" },
-      { href: "/services/web-development", label: "Web Development" },
-      { href: "/services/mobile-apps", label: "Mobile Apps" },
-    ],
-  },
-  {
-    label: "Specialized",
-    icon: Zap,
-    items: [
-      { href: "/services/cloud-systems", label: "Cloud Systems" },
-      { href: "/services/cybersecurity", label: "Cybersecurity" },
-      { href: "/services/data-analytics", label: "Data Analytics" },
-    ],
-  },
-  {
-    label: "Emerging",
-    icon: Rocket,
-    items: [
-      { href: "/services/ai-machine-learning", label: "AI & Machine Learning" },
-      { href: "/services/web3", label: "Web3 Solutions" },
-      { href: "/services/ar-vr", label: "AR/VR Platforms" },
-    ],
-  },
-  {
-    label: "Strategy",
-    icon: BrainCircuit,
-    items: [
-      { href: "/services/digital-audit", label: "Digital Audit" },
-      { href: "/services/brand-positioning", label: "Brand Positioning" },
-      { href: "/services/growth-consulting", label: "Growth Consulting" },
-    ],
-  },
+/**
+ * The mega-menu's shape is owned here; its contents come from the catalogue.
+ *
+ * Every item used to be typed in, and seven of the twelve pointed at pages that
+ * did not exist — three services that were never published, and four
+ * (Web3, AR/VR, Digital Audit, Growth Consulting) that were never in the
+ * catalogue at all. Every one of those was a 404 reached from the site's
+ * primary navigation.
+ *
+ * The columns and their icons stay developer-owned so the information
+ * architecture does not shift under an editor; which services appear in them is
+ * read from published service pages. Publishing a service puts it in the menu,
+ * unpublishing takes it out, and a link can no longer outlive its page.
+ */
+export type MenuService = { slug: string; title: string; category: string | null };
+
+const serviceColumns = [
+  { label: "Core", icon: LayoutGrid, categories: ["Engineering", "Design"] },
+  { label: "Specialized", icon: Zap, categories: ["Infrastructure"] },
+  { label: "Emerging", icon: Rocket, categories: ["Growth"] },
+  { label: "Strategy", icon: BrainCircuit, categories: ["Strategy"] },
 ];
+
+/**
+ * A service whose category matches no column still appears, in the nearest
+ * general one, rather than being silently dropped — an editor inventing a new
+ * category should not make a published service unreachable from the menu.
+ */
+function groupServices(services: MenuService[]) {
+  const claimed = new Set(serviceColumns.flatMap((c) => c.categories));
+
+  return serviceColumns
+    .map((column, index) => ({
+      ...column,
+      items: services.filter(
+        (s) =>
+          (s.category !== null && column.categories.includes(s.category)) ||
+          // Unmatched services land in the first column.
+          (index === 0 && (s.category === null || !claimed.has(s.category)))
+      ),
+    }))
+    .filter((column) => column.items.length > 0);
+}
 
 const links = [
   { href: "/case-studies", label: "Case Studies" },
@@ -67,9 +72,16 @@ const links = [
  */
 export type CmsNavItem = { id: string; label: string; href: string; openInNewTab?: boolean };
 
-export function PublicHeader({ cmsItems = [] }: { cmsItems?: CmsNavItem[] }) {
+export function PublicHeader({
+  cmsItems = [],
+  services = [],
+}: {
+  cmsItems?: CmsNavItem[];
+  services?: MenuService[];
+}) {
   const pathname = usePathname();
   const servicesActive = pathname.startsWith("/services");
+  const serviceGroups = React.useMemo(() => groupServices(services), [services]);
 
   return (
     <header className="fixed top-0 z-50 w-full border-b border-line bg-surface/80 shadow-[0_20px_50px_-12px_var(--brand-glow)] backdrop-blur-lg">
@@ -120,12 +132,12 @@ export function PublicHeader({ cmsItems = [] }: { cmsItems?: CmsNavItem[] }) {
                       </p>
                       <ul className="flex flex-col gap-2 text-sm">
                         {group.items.map((item) => (
-                          <li key={item.href}>
+                          <li key={item.slug}>
                             <Link
-                              href={item.href}
+                              href={`/services/${item.slug}`}
                               className="text-ink-secondary transition-colors hover:text-brand focus-visible:text-brand focus-visible:outline-none"
                             >
-                              {item.label}
+                              {item.title}
                             </Link>
                           </li>
                         ))}
@@ -133,6 +145,16 @@ export function PublicHeader({ cmsItems = [] }: { cmsItems?: CmsNavItem[] }) {
                     </div>
                   ))}
                 </div>
+
+                {/* Always present, so the menu is never a dead end while the
+                    catalogue is empty and there is always a way to the full
+                    list from a column that only shows part of it. */}
+                <Link
+                  href="/services"
+                  className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline focus-visible:outline-none"
+                >
+                  {serviceGroups.length > 0 ? "See all services" : "Browse services"}
+                </Link>
               </PopoverContent>
             </Popover>
           </li>

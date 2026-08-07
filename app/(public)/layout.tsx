@@ -1,5 +1,6 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { getPublicMenu } from "@/lib/supabase/nav-actions";
+import { listPublishedServices } from "@/lib/supabase/service-actions";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicBreadcrumb } from "@/components/layout/PublicBreadcrumb";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,9 +8,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   // Only top-level items: the header renders one row, and a CMS-managed
   // dropdown would collide with the services mega-menu.
-  const [menu, footerMenu] = await Promise.all([
+  const [menu, footerMenu, services] = await Promise.all([
     getPublicMenu("header"),
     getPublicMenu("footer"),
+    // Feeds the services mega-menu and the footer's services column, so a link
+    // in either can never outlive the page it points at.
+    listPublishedServices(),
   ]);
   const headerItems = menu
     .filter((i) => !i.parent_id)
@@ -36,7 +40,7 @@ export default async function PublicLayout({ children }: { children: React.React
         Skip to content
       </a>
 
-      <PublicHeader cmsItems={headerItems} />
+      <PublicHeader cmsItems={headerItems} services={services} />
 
       {/* pt-20 clears the fixed header. `overflow-x-clip` rather than
           `overflow-hidden`: clip contains the ambient blobs without turning
@@ -56,7 +60,7 @@ export default async function PublicLayout({ children }: { children: React.React
         {children}
       </main>
 
-      <PublicFooter cmsItems={footerItems} />
+      <PublicFooter cmsItems={footerItems} services={services} />
     </TooltipProvider>
   );
 }

@@ -8,26 +8,41 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const columns = [
-  {
-    title: "Services",
-    links: [
-      { href: "/services/digital-audit", label: "Strategy" },
-      { href: "/services/ux-ui-design", label: "Design" },
-      { href: "/services/web-development", label: "Development" },
-      { href: "/services/growth-consulting", label: "Optimization" },
-    ],
-  },
-  {
-    title: "Resources",
-    links: [
-      { href: "/case-studies", label: "Case Studies" },
-      { href: "/blog", label: "Insights" },
-      { href: "/privacy", label: "Privacy Policy" },
-      { href: "/terms", label: "Terms of Service" },
-    ],
-  },
-];
+/**
+ * Services come from the catalogue. Two of the four hardcoded links here
+ * (Strategy → digital-audit, Optimization → growth-consulting) pointed at
+ * services that were never in the catalogue and had always 404'd.
+ */
+export type MenuService = { slug: string; title: string };
+
+const resourceColumn = {
+  title: "Resources",
+  links: [
+    { href: "/case-studies", label: "Case Studies" },
+    { href: "/blog", label: "Insights" },
+    { href: "/privacy", label: "Privacy Policy" },
+    { href: "/terms", label: "Terms of Service" },
+  ],
+};
+
+/** Four is what the layout was designed around; the rest live on /services. */
+const FOOTER_SERVICE_LIMIT = 4;
+
+function buildColumns(services: MenuService[]) {
+  const serviceLinks = services
+    .slice(0, FOOTER_SERVICE_LIMIT)
+    .map((s) => ({ href: `/services/${s.slug}`, label: s.title }));
+
+  // "All services" rather than nothing when the catalogue is empty, so the
+  // column never renders as a bare heading.
+  if (serviceLinks.length === 0) {
+    serviceLinks.push({ href: "/services", label: "All services" });
+  } else if (services.length > FOOTER_SERVICE_LIMIT) {
+    serviceLinks.push({ href: "/services", label: "See all" });
+  }
+
+  return [{ title: "Services", links: serviceLinks }, resourceColumn];
+}
 
 /* TODO: swap for the agency's real profile URLs. External so they open in a
    new tab with `rel="noreferrer"`, rather than the `href="#"` dead ends. */
@@ -45,7 +60,15 @@ const socials = [
  */
 export type CmsNavItem = { id: string; label: string; href: string; openInNewTab?: boolean };
 
-export function PublicFooter({ cmsItems = [] }: { cmsItems?: CmsNavItem[] }) {
+export function PublicFooter({
+  cmsItems = [],
+  services = [],
+}: {
+  cmsItems?: CmsNavItem[];
+  services?: MenuService[];
+}) {
+  const columns = React.useMemo(() => buildColumns(services), [services]);
+
   return (
     <footer className="relative w-full border-t border-line bg-surface-sunken">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-20 md:grid-cols-4 md:px-10">

@@ -3,14 +3,18 @@ import type { MetadataRoute } from "next";
 import { studies } from "@/lib/case-studies";
 import { legalDocuments } from "@/lib/legal";
 import { posts } from "@/lib/posts";
-import { services } from "@/lib/services";
 import { siteUrl } from "@/lib/site";
+import { listPublishedServices } from "@/lib/supabase/service-actions";
 
 /**
  * Public surface only. Portal routes are excluded here and in robots.ts —
  * listing them would invite crawling of client data.
+ *
+ * Async because the service list is now read from the CMS. Publishing a
+ * service therefore puts it in the sitemap without a deploy, and unpublishing
+ * one takes it out — neither used to be true.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   const statics = [
@@ -31,14 +35,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   // Only published services have a live page worth indexing.
-  const serviceUrls = services
-    .filter((s) => s.status === "Published")
-    .map((s) => ({
-      url: `${siteUrl}/services/${s.slug}`,
-      lastModified: new Date(s.updatedAt),
-      changeFrequency: "monthly" as const,
-      priority: 0.8,
-    }));
+  const serviceUrls = (await listPublishedServices()).map((s) => ({
+    url: `${siteUrl}/services/${s.slug}`,
+    lastModified: new Date(s.updatedAt),
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
 
   const postUrls = posts.map((p) => ({
     url: `${siteUrl}/blog/${p.slug}`,

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { unstable_noStore as noStore } from "next/cache";
 
 import { createClient } from "./server";
+import type { PageBlock } from "./page-actions";
 import type { Database } from "./types";
 
 /**
@@ -70,6 +71,120 @@ export async function listServiceCategories(): Promise<ServiceCategoryOption[]> 
   const supabase = await createClient();
   const { data } = await supabase.from("service_details").select("category");
   return [...new Set((data ?? []).map((r) => r.category as string))].sort();
+}
+
+/* ------------------------------------------------------- public reading -- */
+
+export type PublicService = {
+  title: string;
+  slug: string;
+  blocks: PageBlock[];
+  seo: Record<string, unknown>;
+  category: string | null;
+  priceFrom: number | null;
+  leadTimeWeeks: number | null;
+  summary: string | null;
+};
+
+/**
+ * A published service for the public detail route.
+ *
+ * Returns null for a draft, an archived service, or a slug nobody has created —
+ * the route 404s on all three. Publishing is decided by `published_version_id`,
+ * not by `status`: an editor can set a page back to draft while a published
+ * version still exists, and the visitor should stop seeing it either way.
+ *
+ * Deliberately does NOT read service_delivery_history. Which clients bought a
+ * service is confidential, and that view runs with invoker rights specifically
+ * so an anonymous caller gets nothing — reading it here would either return an
+ * empty section on every visit or, if anyone ever relaxed the policy, publish
+ * the client list.
+ */
+export async function getPublicService(slug: string): Promise<PublicService | null> {
+  const supabase = await createClient();
+
+  const { data: page } = await supabase
+    .from("pages")
+    .select("id, title, slug, published_version_id")
+    .eq("slug", `services/${slug}`)
+    .eq("status", "published")
+    .maybeSingle();
+  if (!page?.published_version_id) return null;
+
+  // Two queries, not an embed: PostgREST needs foreign-key metadata to join,
+  // and it resolves the version by primary key here rather than by relationship.
+  const [{ data: version }, { data: detail }] = await Promise.all([
+    supabase
+      .from("page_versions")
+      .select("blocks, seo")
+      .eq("id", page.published_version_id)
+      .maybeSingle(),
+    supabase
+      .from("service_details")
+      .select("category, price_from, lead_time_weeks, summary")
+      .eq("page_id", page.id)
+      .maybeSingle(),
+  ]);
+  if (!version) return null;
+
+  return {
+    title: page.title as string,
+    slug,
+    blocks: ((version.blocks ?? []) as unknown as PageBlock[]),
+    seo: (version.seo as Record<string, unknown>) ?? {},
+    category: detail?.category ?? null,
+    priceFrom: detail?.price_from === null || detail?.price_from === undefined
+      ? null
+      : Number(detail.price_from),
+    leadTimeWeeks: detail?.lead_time_weeks ?? null,
+    summary: detail?.summary ?? null,
+  };
+}
+
+/**
+ * Published services, for the sitemap and any public listing.
+ *
+ * Filters on the publish pointer as well as the status, so a service that was
+ * pulled back to draft leaves the sitemap on the next crawl instead of
+ * advertising a URL that now 404s.
+ */
+export type PublishedService = {
+  slug: string;
+  title: string;
+  category: string | null;
+  updatedAt: string;
+};
+
+export async function listPublishedServices(): Promise<PublishedService[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("pages")
+    .select("id, title, slug, updated_at, published_version_id")
+    .eq("page_type", "service")
+    .eq("status", "published");
+
+  const pages = (data ?? []).filter((p) => p.published_version_id);
+  if (pages.length === 0) return [];
+
+  // Second query rather than an embed: PostgREST needs the FK metadata to join,
+  // and service_details is keyed by page_id.
+  const { data: details } = await supabase
+    .from("service_details")
+    .select("page_id, category")
+    .in("page_id", pages.map((p) => p.id as string));
+
+  const categoryOf = new Map(
+    (details ?? []).map((d) => [d.page_id as string, d.category as string | null])
+  );
+
+  return pages
+    .map((p) => ({
+      slug: (p.slug as string).replace(/^services\//, ""),
+      title: p.title as string,
+      category: categoryOf.get(p.id as string) ?? null,
+      updatedAt: p.updated_at as string,
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
 }
 
 /* ------------------------------------------------------------ mutations -- */

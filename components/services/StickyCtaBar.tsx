@@ -12,11 +12,13 @@ import { Button } from "@/components/ui/button";
  * The source offered no way to move it.
  */
 export function StickyCtaBar({
-  price = "$12,000",
-  availability = "Q4 Slots Open",
+  price,
+  leadTime,
 }: {
-  price?: string;
-  availability?: string;
+  /** Formatted starting price, from the service catalogue. */
+  price: string;
+  /** Typical delivery window, from the service catalogue. */
+  leadTime: string;
 }) {
   const [dismissed, setDismissed] = React.useState(false);
   if (dismissed) return null;
@@ -36,17 +38,14 @@ export function StickyCtaBar({
 
           <span className="hidden h-10 w-px bg-line md:block" aria-hidden />
 
+          {/* Was "Availability: Q4 Slots Open" behind a pulsing live dot. The
+              dot implied a capacity feed that does not exist, and the slot
+              claim was typed in. Lead time is a real catalogue field. */}
           <div className="hidden md:block">
             <p className="text-[0.625rem] tracking-widest text-ink-tertiary uppercase">
-              Availability
+              Typical delivery
             </p>
-            <p className="flex items-center gap-2">
-              <span className="relative flex size-2" aria-hidden>
-                <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-70 motion-reduce:animate-none" />
-                <span className="relative size-2 rounded-full bg-success" />
-              </span>
-              <span className="text-sm font-bold text-ink">{availability}</span>
-            </p>
+            <p className="text-sm font-bold text-ink">{leadTime}</p>
           </div>
         </div>
 
