@@ -3,7 +3,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import { authTestimonials } from "@/lib/testimonials";
+import type { Testimonial } from "@/lib/supabase/marketing-actions";
 import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
 
 /**
@@ -14,7 +14,18 @@ import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
  * markup built from string concatenation. This swaps React state and holds on a
  * static quote for reduced-motion users.
  */
-export function QuoteRotator({ intervalMs = 6000 }: { intervalMs?: number }) {
+export function QuoteRotator({
+  quotes,
+  intervalMs = 6000,
+}: {
+  /**
+   * Published testimonials. Empty renders nothing at all — the quotes this
+   * replaces were invented, attributed to named people at clients that do not
+   * exist ("Marcus Sterling, CEO, Astra Banking"), on the sign-in screen.
+   */
+  quotes: Testimonial[];
+  intervalMs?: number;
+}) {
   const [index, setIndex] = React.useState(0);
   const [visible, setVisible] = React.useState(true);
 
@@ -24,14 +35,17 @@ export function QuoteRotator({ intervalMs = 6000 }: { intervalMs?: number }) {
     const id = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
-        setIndex((i) => (i + 1) % authTestimonials.length);
+        setIndex((i) => (i + 1) % quotes.length);
         setVisible(true);
       }, 500);
     }, intervalMs);
     return () => clearInterval(id);
-  }, [intervalMs]);
+  }, [intervalMs, quotes.length]);
 
-  const quote = authTestimonials[index];
+  const quote = quotes[index];
+  // Nothing published means nothing to show. A rotator with no quotes rendered
+  // an empty blockquote and a blank avatar before this guard.
+  if (!quote) return null;
 
   return (
     <figure
@@ -45,11 +59,13 @@ export function QuoteRotator({ intervalMs = 6000 }: { intervalMs?: number }) {
       </blockquote>
       <figcaption className="flex items-center gap-4">
         <Avatar size="lg" className="border border-brand/30">
-          <AvatarFallback>{initials(quote.name)}</AvatarFallback>
+          <AvatarFallback>{initials(quote.author_name)}</AvatarFallback>
         </Avatar>
         <span>
-          <span className="block text-[0.8125rem] font-semibold text-brand">{quote.name}</span>
-          <span className="block text-sm text-ink-tertiary">{quote.role}</span>
+          <span className="block text-[0.8125rem] font-semibold text-brand">{quote.author_name}</span>
+          <span className="block text-sm text-ink-tertiary">
+            {[quote.author_role, quote.organizationName].filter(Boolean).join(", ")}
+          </span>
         </span>
       </figcaption>
     </figure>

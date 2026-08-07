@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
 
-import { studies } from "@/lib/case-studies";
 import { legalDocuments } from "@/lib/legal";
-import { posts } from "@/lib/posts";
 import { siteUrl } from "@/lib/site";
+import {
+  listPublishedCaseStudies,
+  listPublishedPosts,
+} from "@/lib/supabase/content-queries";
 import { listPublishedServices } from "@/lib/supabase/service-actions";
 
 /**
@@ -42,16 +44,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  const postUrls = posts.map((p) => ({
+  // Both from the CMS, so publishing a post lists it without a deploy and
+  // unpublishing takes it out — neither used to be true.
+  const postUrls = (await listPublishedPosts()).map((p) => ({
     url: `${siteUrl}/blog/${p.slug}`,
-    lastModified: now,
+    lastModified: p.publishedOn ? new Date(p.publishedOn) : now,
     changeFrequency: "yearly" as const,
     priority: 0.6,
   }));
 
-  const studyUrls = studies.map((s) => ({
+  const studyUrls = (await listPublishedCaseStudies()).map((s) => ({
     url: `${siteUrl}/case-studies/${s.slug}`,
-    lastModified: now,
+    lastModified: s.publishedOn ? new Date(s.publishedOn) : now,
     changeFrequency: "yearly" as const,
     priority: 0.7,
   }));

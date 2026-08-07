@@ -2,8 +2,11 @@
 
 import * as React from "react";
 import {
+  Bell,
   CalendarDays,
   Cog,
+  FolderOpen,
+  MessagesSquare,
   LifeBuoy,
   LayoutDashboard,
   Monitor,
@@ -25,30 +28,54 @@ import {
 } from "@/components/ui/select";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
 
-const sections: NavSection[] = [
+/**
+ * Badge counts come from the server, for the same reason the client sidebar's
+ * do: they are per-user figures and must not be baked into the bundle.
+ */
+export type StaffCounts = {
+  assignedTasks: number;
+  unreadMessages: number;
+  unreadNotifications: number;
+};
+
+const buildSections = (counts: StaffCounts): NavSection[] => [
   {
     items: [
       { href: "/staff", label: "Workspace Overview", icon: LayoutDashboard, exact: true },
-      { href: "/staff/projects", label: "Project Kanban Boards", icon: SquareKanban },
+      {
+        href: "/staff/projects",
+        label: "Project Kanban Boards",
+        icon: SquareKanban,
+        // Zero renders no badge rather than a "0" chip.
+        badge: counts.assignedTasks || undefined,
+      },
       { href: "/staff/time-tracker", label: "Time Tracker & Logs", icon: Timer },
       { href: "/staff/meetings", label: "Meeting Calendar", icon: CalendarDays },
+      { href: "/staff/messages", label: "Messages", icon: MessagesSquare, badge: counts.unreadMessages || undefined },
+      { href: "/staff/notifications", label: "Notifications", icon: Bell, badge: counts.unreadNotifications || undefined },
+      { href: "/staff/files", label: "Files", icon: FolderOpen },
       { href: "/staff/performance", label: "My Skills & Performance", icon: Monitor },
+      { href: "/staff/support", label: "Support", icon: LifeBuoy },
     ],
   },
 ];
 
 const departments = ["Engineering", "SEO & Growth", "Paid Media", "Design"];
 
-const defaultUser: SidebarUser = { name: "Alex Mercer", role: "Senior Specialist" };
-
-export function StaffSidebar({ user = defaultUser }: { user?: SidebarUser }) {
+export function StaffSidebar({
+  user,
+  counts,
+}: {
+  user: SidebarUser | undefined;
+  counts: StaffCounts;
+}) {
   const [department, setDepartment] = React.useState(departments[0]);
 
   return (
     <Sidebar
       sub="Obsidian"
-      sections={sections}
-      user={user}
+      sections={buildSections(counts)}
+      user={user ?? { name: "Signed in", role: "Staff" }}
       header={
         <div className="rounded-xl border border-line-subtle bg-surface-sunken p-3">
           <span

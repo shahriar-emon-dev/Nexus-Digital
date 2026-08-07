@@ -4,7 +4,7 @@ import * as React from "react";
 import { Download, FileText, Maximize2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { MessageBlock } from "@/lib/messages";
+import type { MessageBlock } from "@/lib/supabase/message-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

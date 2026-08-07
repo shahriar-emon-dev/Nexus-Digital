@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ActionFab } from "@/components/client/ActionFab";
 import { ProjectPulse } from "@/components/client/ProjectPulse";
+import { listDeliverables } from "@/lib/supabase/deliverable-actions";
 import { ProjectTabs } from "./ProjectTabs";
 
 type Params = { params: { id: string } };
@@ -36,10 +37,19 @@ export default async function ClientProjectDetailPage({ params }: Params) {
 
   // The header quotes the final milestone's date when there is one, so it can
   // never disagree with the bottom of the roadmap.
-  const [milestones, tasks] = await Promise.all([
+  const [milestones, tasks, deliverables] = await Promise.all([
     listMilestones(params.id),
     listTasks(params.id),
+    listDeliverables(),
   ]);
+
+  // Only deliverables that are actually attached to a task on this board, so a
+  // review link never points at something belonging to a different project.
+  const deliverableIdByTask = Object.fromEntries(
+    deliverables
+      .filter((d) => d.task_id)
+      .map((d) => [d.task_id as string, d.id])
+  );
   const completion = milestones.at(-1)?.date ?? project.targetEnd;
   const live = project.status === "Active";
 
@@ -113,7 +123,12 @@ export default async function ClientProjectDetailPage({ params }: Params) {
             overlay, so it can never sit on top of the board. */}
         <div className="grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
-            <ProjectTabs projectId={project.id} milestones={milestones} tasks={tasks} />
+            <ProjectTabs
+              projectId={project.id}
+              milestones={milestones}
+              tasks={tasks}
+              deliverableIdByTask={deliverableIdByTask}
+            />
           </div>
 
           <aside aria-label="Project pulse">

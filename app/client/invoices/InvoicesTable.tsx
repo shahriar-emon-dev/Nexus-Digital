@@ -2,291 +2,145 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  CloudCog,
-  Download,
-  Globe,
-  RefreshCw,
-  SlidersHorizontal,
-  type LucideIcon,
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Receipt } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import {
-  invoices,
-  invoiceStatuses,
-  invoiceStatusTone,
-  invoiceTotal,
-  money,
-  recurringInvoices,
-  type Invoice,
-  type InvoiceStatus,
-} from "@/lib/invoices";
+import { useRealtime } from "@/lib/supabase/use-realtime";
+import { money } from "@/lib/format";
+import type { ClientInvoice } from "@/lib/supabase/client-billing";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-const icons: Record<Invoice["icon"], LucideIcon> = {
-  web: Globe,
-  ai: Bot,
-  cloud: CloudCog,
-  retainer: RefreshCw,
-};
+/**
+ * The client's invoice list.
+ *
+ * Read from `invoices` and `invoice_totals`. The version this replaces filtered
+ * a hardcoded array of eleven invented invoices, so the tab counts, the totals
+ * and the overdue badge all described a ledger that did not exist.
+ *
+ * "Overdue" is derived here from the due date and the outstanding balance
+ * rather than being a stored status — a stored one goes stale the moment a date
+ * passes without something running.
+ */
+export function InvoicesTable({ invoices }: { invoices: ClientInvoice[] }) {
+  const router = useRouter();
+  const [tab, setTab] = React.useState<string>("All");
 
-const shortDate = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "2-digit",
-  year: "numeric",
-});
+  useRealtime(
+    "client:invoices",
+    [{ table: "invoices" }, { table: "invoice_payments" }],
+    () => router.refresh()
+  );
 
-type Tab = "All Invoices" | InvoiceStatus | "Recurring Retainers";
-
-const PER_PAGE = 4;
-
-export function InvoicesTable() {
-  const [tab, setTab] = React.useState<Tab>("All Invoices");
-  const [page, setPage] = React.useState(0);
-
-  const tabs: Tab[] = React.useMemo(() => {
-    const list: Tab[] = ["All Invoices", ...invoiceStatuses];
-    // Only offered when there is something behind it.
-    if (recurringInvoices.length > 0) list.push("Recurring Retainers");
-    return list;
-  }, []);
+  const tabs = React.useMemo(() => {
+    const set = new Set<string>(["All"]);
+    if (invoices.some((i) => i.isOverdue)) set.add("Overdue");
+    if (invoices.some((i) => i.outstanding > 0 && !i.isOverdue)) set.add("Outstanding");
+    if (invoices.some((i) => i.outstanding === 0)) set.add("Paid");
+    return [...set];
+  }, [invoices]);
 
   const shown = React.useMemo(() => {
-    if (tab === "All Invoices") return invoices;
-    if (tab === "Recurring Retainers") return recurringInvoices;
-    return invoices.filter((i) => i.status === tab);
-  }, [tab]);
+    if (tab === "Overdue") return invoices.filter((i) => i.isOverdue);
+    if (tab === "Outstanding") return invoices.filter((i) => i.outstanding > 0 && !i.isOverdue);
+    if (tab === "Paid") return invoices.filter((i) => i.outstanding === 0);
+    return invoices;
+  }, [invoices, tab]);
 
-  const pageCount = Math.max(1, Math.ceil(shown.length / PER_PAGE));
-  // A filter change can leave you past the end of the new result set.
-  const current = Math.min(page, pageCount - 1);
-  const rows = shown.slice(current * PER_PAGE, current * PER_PAGE + PER_PAGE);
-  const from = shown.length === 0 ? 0 : current * PER_PAGE + 1;
-  const to = current * PER_PAGE + rows.length;
+  if (invoices.length === 0) {
+    return (
+      <Card variant="glass" className="items-center gap-3 rounded-2xl p-12 text-center">
+        <Receipt className="size-8 text-ink-tertiary" aria-hidden />
+        <h2 className="font-heading text-xl font-semibold text-ink">No invoices yet</h2>
+        <p className="max-w-sm text-ink-tertiary">
+          Invoices appear here as soon as they are issued. You will also be emailed a copy.
+        </p>
+      </Card>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Filters ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div
-          role="group"
-          aria-label="Filter invoices"
-          className="scrollbar-none flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-line bg-surface-sunken p-1"
-        >
-          {tabs.map((option) => {
-            const selected = tab === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => {
-                  setTab(option);
-                  setPage(0);
-                }}
-                className={cn(
-                  "rounded-lg px-5 py-2 text-[0.8125rem] font-semibold whitespace-nowrap",
-                  "transition-all duration-(--duration-normal) ease-(--ease-out-quint)",
-                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
-                  selected
-                    ? "bg-brand text-brand-fg shadow-[0_0_20px_var(--brand-glow)]"
-                    : "text-ink-tertiary hover:bg-surface hover:text-ink"
-                )}
-              >
-                {option}
-              </button>
-            );
-          })}
+    <div className="flex flex-col gap-4">
+      {tabs.length > 1 && (
+        <div role="group" aria-label="Filter invoices" className="flex flex-wrap gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={tab === t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-[0.8125rem] font-medium transition-colors",
+                "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
+                tab === t
+                  ? "bg-brand text-brand-fg"
+                  : "border border-line bg-surface-sunken text-ink-tertiary hover:text-ink"
+              )}
+            >
+              {t}
+            </button>
+          ))}
         </div>
+      )}
 
-        <div className="flex gap-2">
-          {/* TODO: wire to the invoices API once it exists. */}
-          <Button variant="outline" size="sm">
-            <SlidersHorizontal />
-            Filter
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Table ───────────────────────────────────────────────────────── */}
-      <Card variant="glass" className="overflow-hidden rounded-2xl">
-        <div className="scrollbar-none overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <caption className="sr-only">
-              Invoices, filtered by {tab}. Showing {from} to {to} of {shown.length}.
-            </caption>
-            <thead>
-              <tr className="border-b border-line bg-surface-sunken/60">
-                {[
-                  "Invoice ID",
-                  "Project / service",
-                  "Issued",
-                  "Due",
-                  "Amount",
-                  "Status",
-                  "Action",
-                ].map((head, i) => (
-                  <th
-                    key={head}
-                    scope="col"
-                    className={cn(
-                      "px-6 py-4 text-[0.6875rem] font-semibold tracking-widest text-ink-tertiary uppercase",
-                      i === 5 && "text-center",
-                      i === 6 && "text-right"
-                    )}
+      <Card variant="glass" className="overflow-x-auto rounded-2xl p-0">
+        <table className="w-full min-w-[38rem] text-[0.875rem]">
+          <thead>
+            <tr className="border-b border-line text-left text-[0.6875rem] tracking-wide text-ink-tertiary uppercase">
+              <th className="px-5 py-3 font-semibold">Invoice</th>
+              <th className="px-5 py-3 font-semibold">Issued</th>
+              <th className="px-5 py-3 font-semibold">Due</th>
+              <th className="px-5 py-3 text-right font-semibold">Total</th>
+              <th className="px-5 py-3 text-right font-semibold">Outstanding</th>
+              <th className="px-5 py-3 font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((invoice) => (
+              <tr key={invoice.id} className="border-b border-line-subtle last:border-0">
+                <td className="px-5 py-3">
+                  <Link
+                    href={`/client/invoices/${invoice.id}`}
+                    className="rounded-sm font-medium text-ink underline-offset-4 hover:text-brand hover:underline focus-visible:outline-none"
                   >
-                    {head}
-                  </th>
-                ))}
+                    {invoice.number}
+                  </Link>
+                </td>
+                <td data-tabular className="px-5 py-3 whitespace-nowrap text-ink-tertiary">
+                  {invoice.issueDate ?? "—"}
+                </td>
+                <td data-tabular className="px-5 py-3 whitespace-nowrap text-ink-tertiary">
+                  {invoice.dueDate ?? "—"}
+                </td>
+                <td data-tabular className="px-5 py-3 text-right text-ink">
+                  {money.format(invoice.total)}
+                </td>
+                <td data-tabular className="px-5 py-3 text-right font-medium text-ink">
+                  {money.format(invoice.outstanding)}
+                </td>
+                <td className="px-5 py-3">
+                  <Badge
+                    variant={
+                      invoice.isOverdue
+                        ? "danger"
+                        : invoice.outstanding === 0
+                          ? "success"
+                          : "warning"
+                    }
+                    size="sm"
+                  >
+                    {invoice.isOverdue
+                      ? "Overdue"
+                      : invoice.outstanding === 0
+                        ? "Paid"
+                        : invoice.status}
+                  </Badge>
+                </td>
               </tr>
-            </thead>
-
-            <tbody className="divide-y divide-line-subtle">
-              {rows.map((invoice) => {
-                const Icon = icons[invoice.icon];
-                const overdue = invoice.status === "Overdue";
-                return (
-                  <tr
-                    key={invoice.id}
-                    className="group transition-colors duration-(--duration-fast) hover:bg-surface-sunken/60"
-                  >
-                    <th
-                      scope="row"
-                      className="px-6 py-4 text-left font-mono text-[0.8125rem] font-semibold whitespace-nowrap text-ink"
-                    >
-                      {invoice.id}
-                    </th>
-
-                    <td className="px-6 py-4">
-                      <span className="flex items-center gap-3">
-                        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-subtle text-brand">
-                          <Icon className="size-4" aria-hidden />
-                        </span>
-                        <span className="font-medium text-ink">{invoice.reference}</span>
-                        {invoice.recurring && (
-                          <Badge variant="outline" size="sm" className="uppercase">
-                            Recurring
-                          </Badge>
-                        )}
-                      </span>
-                    </td>
-
-                    <td
-                      data-tabular
-                      className="px-6 py-4 text-[0.8125rem] whitespace-nowrap text-ink-tertiary"
-                    >
-                      <time dateTime={invoice.issuedOn}>
-                        {shortDate.format(new Date(invoice.issuedOn))}
-                      </time>
-                    </td>
-
-                    <td
-                      data-tabular
-                      className={cn(
-                        "px-6 py-4 text-[0.8125rem] whitespace-nowrap",
-                        overdue ? "font-semibold text-danger" : "text-ink-tertiary"
-                      )}
-                    >
-                      <time dateTime={invoice.dueOn}>
-                        {shortDate.format(new Date(invoice.dueOn))}
-                      </time>
-                    </td>
-
-                    <td
-                      data-tabular
-                      className="px-6 py-4 font-semibold whitespace-nowrap text-ink"
-                    >
-                      {money.format(invoiceTotal(invoice))}
-                    </td>
-
-                    <td className="px-6 py-4 text-center">
-                      <Badge
-                        variant={invoiceStatusTone[invoice.status]}
-                        className="gap-2 whitespace-nowrap"
-                      >
-                        <span className="relative flex size-1.5" aria-hidden>
-                          {overdue && (
-                            <span className="absolute inset-0 animate-ping rounded-full bg-current opacity-75 motion-reduce:animate-none" />
-                          )}
-                          <span className="relative size-1.5 rounded-full bg-current" />
-                        </span>
-                        {invoice.status}
-                      </Badge>
-                    </td>
-
-                    <td className="px-6 py-4 text-right">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="gap-1 transition-[gap] duration-(--duration-normal) hover:gap-2"
-                        render={<Link href={`/client/invoices/${invoice.id}`} />}
-                      >
-                        View details
-                        <ChevronRight />
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {shown.length === 0 && (
-          <p className="px-6 py-16 text-center text-ink-tertiary">
-            No invoices with that status.
-          </p>
-        )}
-
-        {/* ── Pagination ────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-sunken/60 px-6 py-4">
-          {/* Derived. The design hardcoded "1-10 of 48" above four rows. */}
-          <p aria-live="polite" className="text-[0.8125rem] text-ink-tertiary">
-            Showing{" "}
-            <span data-tabular className="font-semibold text-ink">
-              {from}–{to}
-            </span>{" "}
-            of{" "}
-            <span data-tabular className="font-semibold text-ink">
-              {shown.length}
-            </span>{" "}
-            invoices
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Previous page"
-              disabled={current === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              <ChevronLeft />
-            </Button>
-            <span data-tabular className="text-[0.8125rem] text-ink-tertiary">
-              {current + 1} / {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Next page"
-              disabled={current >= pageCount - 1}
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </Card>
     </div>
   );

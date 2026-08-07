@@ -198,3 +198,17 @@ export async function listTasks(slug: string): Promise<BoardTask[]> {
     priority: t.priority,
   }));
 }
+
+/**
+ * Projects as {uuid, name}, for form selects.
+ *
+ * `listProjects` deliberately returns `PortalProject`, whose `id` is the SLUG —
+ * it is shaped for the screens, and the slug is what their links use. Anything
+ * writing a foreign key needs the real primary key instead, and reusing the
+ * portal shape for that silently stores a slug in a uuid column.
+ */
+export async function listProjectOptions(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("projects").select("id, name").order("name");
+  return (data ?? []) as { id: string; name: string }[];
+}

@@ -11,7 +11,6 @@ import {
 
 import { cn } from "@/lib/utils";
 import { boardColumns, type BoardColumn, type BoardTask } from "@/lib/client-portal";
-import { deliverableForTask } from "@/lib/deliverables";
 import { leadership } from "@/lib/team";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
@@ -52,10 +51,19 @@ const memberById = (id: string) => leadership.find((m) => m.id === id);
 export function ReviewBoard({
   projectId,
   tasks,
+  deliverableIdByTask = {},
 }: {
   projectId: string;
   /** Supplied by the server from the database; RLS has already scoped it. */
   tasks: BoardTask[];
+  /**
+   * task id → deliverable id, resolved on the server.
+   *
+   * This used to come from a static module that mapped two invented tasks to
+   * two invented deliverables, so the "Review deliverable" button either opened
+   * a page about nothing or was hidden for work that genuinely had one.
+   */
+  deliverableIdByTask?: Record<string, string>;
 }) {
   const [signedOff, setSignedOff] = React.useState<string[]>([]);
 
@@ -132,6 +140,7 @@ export function ReviewBoard({
                   <li key={task.id}>
                     <TaskCard
                       task={task}
+                      deliverableId={deliverableIdByTask[task.id]}
                       done={column.id === "done"}
                       signedOff={signedOff.includes(task.id)}
                       onReview={() => {
@@ -162,18 +171,19 @@ export function ReviewBoard({
 
 function TaskCard({
   task,
+  deliverableId,
   done,
   signedOff,
   onReview,
 }: {
   task: BoardTask;
+  deliverableId?: string;
   done: boolean;
   signedOff: boolean;
   onReview: () => void;
 }) {
   const assignee = memberById(task.assigneeId);
   const needsAction = Boolean(task.awaitingApproval) && !signedOff;
-  const deliverable = deliverableForTask(task.id);
 
   return (
     <Card
@@ -232,14 +242,14 @@ function TaskCard({
             {/* Where a real deliverable exists, the button opens the review
                 canvas. The sign-off dialog is the fallback for tasks that have
                 nothing to look at yet. */}
-            {deliverable ? (
+            {deliverableId ? (
               <Button
                 size="sm"
                 className={cn(
                   "w-full transition-transform hover:scale-[1.02]",
                   task.priority && "shadow-[0_0_20px_var(--brand-glow)]"
                 )}
-                render={<Link href={`/client/deliverables/${deliverable.id}`} />}
+                render={<Link href={`/client/deliverables/${deliverableId}`} />}
               >
                 Open review
                 <ArrowRight />

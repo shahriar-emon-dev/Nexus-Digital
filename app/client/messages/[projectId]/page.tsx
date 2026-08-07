@@ -1,7 +1,19 @@
-import { RouteScaffold } from "@/components/shared/RouteScaffold";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Messages detail" };
+import { listChannels } from "@/lib/supabase/message-actions";
 
-export default function ClientMessagesPage() {
-  return <RouteScaffold title="Messages detail" route="/client/messages/[projectId]" />;
+/**
+ * A project's channel.
+ *
+ * Redirects into the hub rather than rendering a second, near-identical thread
+ * view that would drift from it. When no channel exists for the project the
+ * hub's own empty state explains why, which is better than a 404.
+ */
+export default async function ProjectChannelPage({
+  params,
+}: {
+  params: { projectId: string };
+}) {
+  const channel = (await listChannels()).find((c) => c.projectId === params.projectId);
+  redirect(channel ? `/client/messages?channel=${channel.id}` : "/client/messages");
 }

@@ -21,10 +21,13 @@ export function ProjectTabs({
   projectId,
   milestones,
   tasks,
+  deliverableIdByTask,
 }: {
   projectId: string;
   milestones: ProjectMilestone[];
   tasks: BoardTask[];
+  /** Resolved on the server so the review link only appears where one exists. */
+  deliverableIdByTask: Record<string, string>;
 }) {
   return (
     <Tabs defaultValue="roadmap">
@@ -52,7 +55,11 @@ export function ProjectTabs({
       </TabsContent>
 
       <TabsContent value="board" className="mt-10">
-        <ReviewBoard projectId={projectId} tasks={tasks} />
+        <ReviewBoard
+          projectId={projectId}
+          tasks={tasks}
+          deliverableIdByTask={deliverableIdByTask}
+        />
       </TabsContent>
 
       {/* No design was supplied for these two, so they say so plainly and point

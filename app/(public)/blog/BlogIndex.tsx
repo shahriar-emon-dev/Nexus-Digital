@@ -6,26 +6,39 @@ import Link from "next/link";
 import { CalendarDays, ChevronDown, MoveRight, Timer } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import {
-  categories,
-  categoryTone,
-  formatDate,
-  gridPosts,
-  type Category,
-} from "@/lib/posts";
+import type { ContentCard } from "@/lib/supabase/content-queries";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/marketing/Reveal";
 
 const PAGE_SIZE = 3;
 
-export function BlogIndex() {
-  const [category, setCategory] = React.useState<Category | "All">("All");
+const dateFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+const formatDate = (iso: string) => dateFormat.format(new Date(iso));
+
+/**
+ * Posts come from the CMS. This component used to read `lib/posts.ts`, so
+ * publishing from the admin changed nothing a visitor could see.
+ *
+ * Categories are derived from the rows rather than a fixed union, so a filter
+ * can never offer one that matches nothing.
+ */
+export function BlogIndex({ posts }: { posts: ContentCard[] }) {
+  const [category, setCategory] = React.useState<string>("All");
   const [shown, setShown] = React.useState(PAGE_SIZE);
 
+  const categories = React.useMemo(
+    () => [...new Set(posts.map((p) => p.category).filter((c): c is string => Boolean(c)))],
+    [posts]
+  );
+
   const filtered = React.useMemo(
-    () => (category === "All" ? gridPosts : gridPosts.filter((p) => p.category === category)),
-    [category]
+    () => (category === "All" ? posts : posts.filter((p) => p.category === category)),
+    [posts, category]
   );
   const visible = filtered.slice(0, shown);
 
@@ -37,7 +50,7 @@ export function BlogIndex() {
           aria-label="Filter by category"
           className="flex flex-wrap items-center gap-4 border-b border-line-subtle pb-8"
         >
-          {(["All", ...categories] as (Category | "All")[]).map((c) => {
+          {["All", ...categories].map((c) => {
             const selected = category === c;
             return (
               <button
@@ -66,43 +79,47 @@ export function BlogIndex() {
       <section className="mx-auto max-w-7xl px-4 py-12 md:px-10">
         <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {visible.map((post, i) => (
-            <li key={post.id}>
+            <li key={post.slug}>
               <Reveal delay={i * 80} className="h-full">
                 <Card
                   variant="glass"
                   interactive
                   className={cn(
                     "group h-full rounded-3xl p-6",
-                    post.highlight && "border-beam"
+                    post.isFeatured && "border-beam"
                   )}
                 >
+                  {/* The cover is optional: a post without one gets the tinted
+                      panel rather than a broken image. The covers this replaced
+                      were design-tool CDN URLs that will expire. */}
                   <div className="relative mb-6 aspect-video overflow-hidden rounded-2xl bg-surface-sunken">
-                    <Image
-                      src={post.image}
-                      alt=""
-                      fill
-                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                      className="object-cover transition-transform duration-500 ease-(--ease-out-quint) group-hover:scale-105"
-                    />
-                    <span
-                      className={cn(
-                        "absolute top-4 left-4 rounded-full border px-3 py-1 text-[0.625rem] font-bold uppercase backdrop-blur-md",
-                        categoryTone[post.category]
-                      )}
-                    >
-                      {post.category}
-                    </span>
+                    {post.coverUrl && (
+                      <Image
+                        src={post.coverUrl}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-500 ease-(--ease-out-quint) group-hover:scale-105"
+                      />
+                    )}
+                    {post.category && (
+                      <span className="absolute top-4 left-4 rounded-full border border-line-strong bg-surface/80 px-3 py-1 text-[0.625rem] font-bold text-ink-secondary uppercase backdrop-blur-md">
+                        {post.category}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-1 flex-col gap-4">
                     <div className="flex items-center justify-between text-xs text-ink-tertiary">
                       <span className="flex items-center gap-1">
                         <CalendarDays className="size-3.5" aria-hidden />
-                        <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+                        {post.publishedOn && (
+                          <time dateTime={post.publishedOn}>{formatDate(post.publishedOn)}</time>
+                        )}
                       </span>
                       <span className="flex items-center gap-1">
                         <Timer className="size-3.5" aria-hidden />
-                        {post.readMinutes} min
+                        {post.readMinutes ?? "—"} min
                       </span>
                     </div>
 

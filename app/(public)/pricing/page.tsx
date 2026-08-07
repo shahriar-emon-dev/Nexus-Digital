@@ -9,6 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { listPublishedPackages } from "@/lib/supabase/marketing-actions";
+import { toServiceCard } from "./packages-to-cards";
 import { ServiceDirectory } from "./ServiceDirectory";
 
 export const metadata: Metadata = {
@@ -55,7 +57,10 @@ const comparison = {
   ],
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const packages = await listPublishedPackages();
+  const services = packages.map(toServiceCard);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 md:px-10 md:py-24">
       <section className="mx-auto mb-16 max-w-3xl text-center">
@@ -68,7 +73,7 @@ export default function PricingPage() {
         </p>
       </section>
 
-      <ServiceDirectory />
+      <ServiceDirectory services={services} />
 
       <section className="mt-24 flex flex-col gap-12">
         <div className="mx-auto max-w-2xl text-center">

@@ -3,256 +3,124 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { FolderSearch, MoveRight } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import type { ContentCard } from "@/lib/supabase/content-queries";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/marketing/Reveal";
-import {
-  industries,
-  serviceFilters,
-  studies,
-  type Layout,
-  type Metric,
-} from "@/lib/case-studies";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const spans: Record<Layout, string> = {
-  featured: "md:col-span-8",
-  stacked: "md:col-span-4",
-  split: "md:col-span-6",
-};
+/**
+ * Published case studies from the CMS.
+ *
+ * The grid this replaces rendered four fictional clients from a static module,
+ * each with invented results — "420% Throughput Increase" for a bank that does
+ * not exist. Those were not migrated: a case study is a claim about work
+ * actually done, and the honest source is a real project with a case study page
+ * attached to it.
+ *
+ * The filter is built from the categories present, so it can never offer one
+ * that matches nothing.
+ */
+export function CaseStudyGrid({ studies }: { studies: ContentCard[] }) {
+  const [category, setCategory] = React.useState<string>("All");
 
-const toneText = {
-  brand: "text-brand",
-  ion: "text-ion",
-  orchid: "text-chart-3",
-} as const;
-
-function Metrics({ metrics, size = "md" }: { metrics: Metric[]; size?: "md" | "sm" }) {
-  return (
-    <dl className={cn("flex", size === "md" ? "gap-8" : "gap-6")}>
-      {metrics.map((metric) => (
-        <div key={metric.label}>
-          <dd
-            data-tabular
-            className={cn(
-              "font-bold",
-              size === "md" ? "text-2xl" : "text-xl",
-              toneText[metric.tone]
-            )}
-          >
-            {metric.value}
-          </dd>
-          <dt
-            className={cn(
-              "tracking-widest text-ink-tertiary uppercase",
-              size === "md" ? "text-[0.625rem]" : "text-[0.5625rem]"
-            )}
-          >
-            {metric.label}
-          </dt>
-        </div>
-      ))}
-    </dl>
+  const categories = React.useMemo(
+    () => ["All", ...new Set(studies.map((s) => s.category).filter((c): c is string => Boolean(c)))],
+    [studies]
   );
-}
-
-function FilterRow({
-  label,
-  options,
-  active,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  active: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-4">
-      <span className="text-[0.8125rem] font-semibold tracking-widest text-ink-tertiary uppercase">
-        {label}:
-      </span>
-      {options.map((option) => {
-        const selected = active === option;
-        return (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(option)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-[0.8125rem] font-semibold transition-colors duration-(--duration-fast)",
-              "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
-              selected
-                ? "border border-brand/40 bg-brand/20 text-brand"
-                : "text-ink-tertiary hover:bg-surface-sunken hover:text-ink"
-            )}
-          >
-            {option}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-export function CaseStudyGrid() {
-  const [industry, setIndustry] = React.useState<string>("All Sectors");
-  const [service, setService] = React.useState<string>("All Services");
 
   const shown = React.useMemo(
-    () =>
-      studies.filter(
-        (s) =>
-          (industry === "All Sectors" || s.industry === industry) &&
-          (service === "All Services" || s.service === service)
-      ),
-    [industry, service]
+    () => (category === "All" ? studies : studies.filter((s) => s.category === category)),
+    [studies, category]
   );
 
-  return (
-    <>
-      <section className="mb-12">
-        <Card variant="glass" className="gap-6 rounded-xl p-6">
-          <FilterRow
-            label="Industry"
-            options={industries}
-            active={industry}
-            onChange={setIndustry}
-          />
-          <FilterRow
-            label="Service"
-            options={serviceFilters}
-            active={service}
-            onChange={setService}
-          />
-        </Card>
-        <p aria-live="polite" className="sr-only">
-          Showing {shown.length} of {studies.length} case studies.
+  if (studies.length === 0) {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-24 text-center md:px-10">
+        <span className="mx-auto mb-5 grid size-14 place-items-center rounded-full bg-brand/10">
+          <FolderSearch className="size-7 text-brand" aria-hidden />
+        </span>
+        <h2 className="font-heading text-[2rem] leading-tight font-semibold text-ink">
+          No case studies published yet
+        </h2>
+        <p className="mx-auto mt-4 max-w-md text-lg text-ink-tertiary">
+          We publish these from real delivered projects, with the client&rsquo;s agreement.
+          Nothing is here until there is something true to show.
         </p>
+        <Button className="mt-8 rounded-xl" render={<Link href="/contact" />}>
+          Talk to us about your project
+          <MoveRight />
+        </Button>
       </section>
+    );
+  }
 
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-12">
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-12 md:px-10">
+      {categories.length > 1 && (
+        <div className="mb-10 flex flex-wrap items-center gap-4">
+          <label htmlFor="cs-category" className="text-[0.8125rem] text-ink-tertiary">
+            Filter
+          </label>
+          <Select value={category} onValueChange={(v) => setCategory(v ?? "All")}>
+            <SelectTrigger id="cs-category" className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <p aria-live="polite" className="sr-only">
+        Showing {shown.length} of {studies.length} case studies.
+      </p>
+
+      <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {shown.map((study, i) => (
-          <Reveal key={study.id} delay={i * 70} className={cn("h-full", spans[study.layout])}>
-            <Card
-              variant="glass"
-              interactive
-              className={cn(
-                "group h-full overflow-hidden rounded-2xl",
-                study.featured && "border-beam"
-              )}
-            >
-              {study.layout === "featured" && (
-                <div className="flex h-full min-h-125 flex-col md:flex-row">
-                  <div className="flex w-full flex-col justify-between p-10 md:w-1/2">
-                    <div>
-                      <div className="mb-6 flex gap-2">
-                        <span className="rounded bg-brand/20 px-2 py-0.5 text-[0.625rem] font-bold tracking-widest text-brand uppercase">
-                          Featured
-                        </span>
-                        <span className="rounded bg-surface-sunken px-2 py-0.5 text-[0.625rem] font-bold tracking-widest text-ink-secondary uppercase">
-                          {study.industry}
-                        </span>
-                      </div>
-                      <h2 className="mb-4 font-heading text-[2rem] leading-[1.3] font-semibold text-ink transition-colors group-hover:text-brand">
-                        <Link href={study.href} className="after:absolute after:inset-0">
-                          {study.title}
-                        </Link>
-                      </h2>
-                      <p className="mb-8 line-clamp-3 leading-relaxed text-ink-tertiary">
-                        {study.blurb}
-                      </p>
-                    </div>
-                    <Metrics metrics={study.metrics} />
-                  </div>
-                  <div className="relative min-h-64 w-full overflow-hidden bg-surface-sunken md:w-1/2">
+          <li key={study.slug}>
+            <Reveal delay={i * 80} className="h-full">
+              <Card variant="glass" interactive className="group h-full rounded-3xl p-6">
+                <div className="relative mb-6 aspect-video overflow-hidden rounded-2xl bg-surface-sunken">
+                  {study.coverUrl && (
                     <Image
-                      src={study.image}
+                      src={study.coverUrl}
                       alt=""
                       fill
-                      sizes="(min-width: 768px) 33vw, 100vw"
-                      className="object-cover transition-transform duration-700 ease-(--ease-out-quint) group-hover:scale-110"
+                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                      className="object-cover transition-transform duration-500 ease-(--ease-out-quint) group-hover:scale-105"
                     />
-                  </div>
+                  )}
+                  {study.category && (
+                    <span className="absolute top-4 left-4 rounded-full border border-line-strong bg-surface/80 px-3 py-1 text-[0.625rem] font-bold text-ink-secondary uppercase backdrop-blur-md">
+                      {study.category}
+                    </span>
+                  )}
                 </div>
-              )}
 
-              {study.layout === "stacked" && (
-                <div className="flex h-full flex-col">
-                  <div className="relative h-64 overflow-hidden bg-surface-sunken">
-                    <Image
-                      src={study.image}
-                      alt=""
-                      fill
-                      sizes="(min-width: 768px) 33vw, 100vw"
-                      className="object-cover transition-transform duration-700 ease-(--ease-out-quint) group-hover:scale-110"
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col p-8">
-                    <p className="mb-3 text-[0.625rem] font-bold tracking-[0.2em] text-brand uppercase">
-                      {study.industry}
-                    </p>
-                    <h2 className="mb-4 font-heading text-[2rem] leading-[1.3] font-semibold text-ink transition-colors group-hover:text-brand">
-                      <Link href={study.href} className="after:absolute after:inset-0">
-                        {study.title}
-                      </Link>
-                    </h2>
-                    <p className="mb-6 flex-1 leading-relaxed text-ink-tertiary">
-                      {study.blurb}
-                    </p>
-                    <div className="border-t border-line-subtle pt-6">
-                      <Metrics metrics={study.metrics} size="sm" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {study.layout === "split" && (
-                <div className="flex h-full flex-col md:flex-row">
-                  <div className="relative h-64 w-full overflow-hidden bg-surface-sunken md:h-auto md:w-2/5">
-                    <Image
-                      src={study.image}
-                      alt=""
-                      fill
-                      sizes="(min-width: 768px) 25vw, 100vw"
-                      className="object-cover transition-transform duration-700 ease-(--ease-out-quint) group-hover:scale-110"
-                    />
-                  </div>
-                  <div className="w-full p-8 md:w-3/5">
-                    <p className="mb-3 text-[0.625rem] font-bold tracking-[0.2em] text-brand uppercase">
-                      {study.industry}
-                    </p>
-                    <h2 className="mb-4 font-heading text-[2rem] leading-[1.3] font-semibold text-ink transition-colors group-hover:text-brand">
-                      <Link href={study.href} className="after:absolute after:inset-0">
-                        {study.title}
-                      </Link>
-                    </h2>
-                    <p className="mb-6 leading-relaxed text-ink-tertiary">{study.blurb}</p>
-                    <Metrics metrics={study.metrics} size="sm" />
-                  </div>
-                </div>
-              )}
-            </Card>
-          </Reveal>
+                <h2 className="font-heading text-[1.75rem] leading-[1.3] font-semibold text-ink transition-colors group-hover:text-brand">
+                  <Link
+                    href={`/case-studies/${study.slug}`}
+                    className="after:absolute after:inset-0"
+                  >
+                    {study.title}
+                  </Link>
+                </h2>
+                {study.excerpt && (
+                  <p className="mt-3 line-clamp-3 text-ink-tertiary">{study.excerpt}</p>
+                )}
+              </Card>
+            </Reveal>
+          </li>
         ))}
-
-        {shown.length === 0 && (
-          <p className="col-span-full rounded-2xl border border-dashed border-line-strong px-6 py-16 text-center text-ink-tertiary">
-            No case studies match that combination.{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setIndustry("All Sectors");
-                setService("All Services");
-              }}
-              className="font-semibold text-brand underline-offset-4 hover:underline"
-            >
-              Clear filters
-            </button>
-          </p>
-        )}
-      </section>
-    </>
+      </ul>
+    </section>
   );
 }

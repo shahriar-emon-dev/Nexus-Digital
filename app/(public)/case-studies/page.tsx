@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { listPublishedCaseStudies } from "@/lib/supabase/content-queries";
 import { CaseStudyGrid } from "./CaseStudyGrid";
 
 export const metadata: Metadata = {
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
     "Engineered success. Explore how Nexus builds high-availability architecture, headless commerce and decentralised platforms for clients across FinTech, retail, enterprise and Web3.",
 };
 
-export default function CaseStudiesPage() {
+export default async function CaseStudiesPage() {
+  const studies = await listPublishedCaseStudies();
+
   return (
     <>
       <div className="noise-field" aria-hidden />
@@ -36,7 +39,7 @@ export default function CaseStudiesPage() {
           </h1>
         </header>
 
-        <CaseStudyGrid />
+        <CaseStudyGrid studies={studies} />
 
         <Card
           variant="glass"

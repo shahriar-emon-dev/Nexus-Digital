@@ -202,6 +202,63 @@ export type Database = {
           },
         ]
       }
+      content_details: {
+        Row: {
+          author_id: string | null
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          display_order: number
+          excerpt: string | null
+          is_featured: boolean
+          page_id: string
+          published_on: string | null
+          read_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          display_order?: number
+          excerpt?: string | null
+          is_featured?: boolean
+          page_id: string
+          published_on?: string | null
+          read_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          display_order?: number
+          excerpt?: string | null
+          is_featured?: boolean
+          page_id?: string
+          published_on?: string | null
+          read_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_details_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_details_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: true
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deliverable_annotations: {
         Row: {
           author_id: string | null
@@ -3440,9 +3497,7 @@ export const Constants = {
 } as const
 
 /* --------------------------------------------------------------- aliases --
- * Hand-added below the generated block. `supabase gen types` overwrites this
- * file wholesale, so these have to be re-appended after every regeneration —
- * losing them breaks middleware, auth and the users table at once.
+ * Hand-added below the generated block by scripts/append-type-aliases.mjs.
  */
 export type Portal = Database["public"]["Enums"]["portal"];
 export type AccessLevel = Database["public"]["Enums"]["access_level"];

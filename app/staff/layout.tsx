@@ -1,21 +1,25 @@
 import { StaffSidebar } from "@/components/layout/StaffSidebar";
 import { getSidebarUser } from "@/lib/supabase/sidebar-user";
+import { getStaffSidebarCounts } from "@/lib/supabase/portal-counts";
 import { FloatingTimer } from "@/components/staff/FloatingTimer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const statusLinks = [
-  { label: "System Status: Operational", href: "/client/status" },
+  { label: "System Status", href: "/client/status" },
   { label: "API Docs", href: "/staff/support" },
   { label: "Internal Wiki", href: "/staff/support" },
 ];
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
-  const user = await getSidebarUser("Staff");
+  const [user, counts] = await Promise.all([
+    getSidebarUser("Staff"),
+    getStaffSidebarCounts(),
+  ]);
 
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-canvas">
-        <StaffSidebar user={user} />
+        <StaffSidebar user={user} counts={counts} />
 
         {/* pt-14 clears the fixed mobile nav bar the sidebar renders below `lg`. */}
         <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">

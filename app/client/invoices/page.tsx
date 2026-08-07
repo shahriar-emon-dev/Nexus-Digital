@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { CalendarClock, TrendingUp, Wallet } from "lucide-react";
 
-import { billingSummary, invoiceTotal, money } from "@/lib/invoices";
+import { money } from "@/lib/format";
+import { getBillingSummary, listClientInvoices } from "@/lib/supabase/client-billing";
 import { Card } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { InvoicesTable } from "./InvoicesTable";
@@ -22,11 +23,16 @@ function daysUntil(iso: string) {
   return Math.round((then - start) / 86_400_000);
 }
 
-export default function ClientInvoicesPage() {
-  const next = billingSummary.nextDue;
-  const days = next ? daysUntil(next.dueOn) : 0;
-  const billed = billingSummary.outstanding + billingSummary.paidToDate;
-  const outstandingPct = billed === 0 ? 0 : Math.round((billingSummary.outstanding / billed) * 100);
+/**
+ * Was backed by lib/invoices.ts — eleven invented invoices and a summary
+ * constant, identical for every client.
+ */
+export default async function ClientInvoicesPage() {
+  const [invoices, summary] = await Promise.all([listClientInvoices(), getBillingSummary()]);
+
+  const days = summary.nextDue ? daysUntil(summary.nextDue.dueDate) : null;
+  const billed = summary.outstanding + summary.paidToDate;
+  const outstandingPct = billed === 0 ? 0 : Math.round((summary.outstanding / billed) * 100);
 
   return (
     <>
@@ -38,106 +44,77 @@ export default function ClientInvoicesPage() {
 
       <div className="flex flex-col gap-8 px-5 py-10 lg:px-10">
         <div>
-          <h1 className="font-heading text-[2.5rem] leading-[1.15] font-bold tracking-tight text-ink">
+          <h1 className="font-heading text-[2rem] leading-tight font-bold tracking-tight text-ink">
             Billing
           </h1>
-          <p className="mt-2 text-lg text-ink-tertiary">
-            Every invoice raised against your account, and what is still open.
+          <p className="mt-1 text-ink-tertiary">
+            Every invoice raised against your account.
           </p>
         </div>
 
-        {/* ── Summary bento ─────────────────────────────────────────────── */}
-        <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <Card
-            variant="glass"
-            lift
-            className="group relative gap-0 overflow-hidden rounded-2xl p-6"
-          >
-            <Wallet
-              className="pointer-events-none absolute -top-3 -right-3 size-24 text-brand opacity-[0.07] transition-opacity duration-(--duration-slow) group-hover:opacity-20"
-              aria-hidden
-            />
-            <p className="text-[0.8125rem] font-semibold tracking-wider text-ink-tertiary uppercase">
-              Total paid to date
-            </p>
-            <p
+        <dl className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card variant="glass" className="rounded-2xl p-6">
+            <dt className="flex items-center gap-2 text-[0.6875rem] font-bold tracking-wide text-ink-tertiary uppercase">
+              <Wallet className="size-4" aria-hidden />
+              Outstanding
+            </dt>
+            <dd
               data-tabular
-              className="mt-2 font-heading text-[2.5rem] leading-none font-bold text-brand"
+              className="mt-2 font-heading text-[2rem] leading-none font-bold text-ink"
             >
-              {money.format(billingSummary.paidToDate)}
-            </p>
-            <p className="mt-4 flex items-center gap-1.5 text-[0.8125rem] text-success">
-              <TrendingUp className="size-4" aria-hidden />
-              <span data-tabular>{billingSummary.paidCount}</span> invoices settled
-            </p>
-          </Card>
-
-          <Card variant="glass" lift className="border-beam gap-0 rounded-2xl p-6">
-            <p className="text-[0.8125rem] font-semibold tracking-wider text-ink-tertiary uppercase">
-              Current outstanding balance
-            </p>
-            <p
-              data-tabular
-              className="mt-2 font-heading text-[2.5rem] leading-none font-bold text-ink"
-            >
-              {money.format(billingSummary.outstanding)}
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              <div
-                className="h-1.5 flex-1 overflow-hidden rounded-full bg-line"
-                role="progressbar"
-                aria-label="Share of billing still outstanding"
-                aria-valuenow={outstandingPct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              >
-                <div
-                  className="h-full rounded-full bg-ion shadow-[0_0_20px_var(--brand-glow)]"
-                  style={{ width: `${outstandingPct}%` }}
-                />
-              </div>
-              <span className="shrink-0 text-[0.75rem] whitespace-nowrap text-ink-tertiary">
-                <span data-tabular>{billingSummary.pendingCount}</span> pending
-              </span>
-            </div>
-          </Card>
-
-          <Card
-            variant="glass"
-            lift
-            className="group relative gap-0 overflow-hidden rounded-2xl p-6"
-          >
-            <CalendarClock
-              className="pointer-events-none absolute -top-3 -right-3 size-24 text-chart-3 opacity-[0.07] transition-opacity duration-(--duration-slow) group-hover:opacity-20"
-              aria-hidden
-            />
-            <p className="text-[0.8125rem] font-semibold tracking-wider text-ink-tertiary uppercase">
-              Next payment due
-            </p>
-            <p
-              data-tabular
-              className="mt-2 font-heading text-[2rem] leading-tight font-bold text-chart-3"
-            >
-              {next ? longDate.format(new Date(next.dueOn)) : "Nothing due"}
-            </p>
-            {next && (
-              <p className="mt-4 text-[0.8125rem] text-ink-tertiary">
-                {days < 0 ? (
-                  <span className="text-danger">
-                    {next.id} is <span data-tabular>{Math.abs(days)}</span> days overdue
-                  </span>
-                ) : (
-                  <>
-                    {next.id} · <span data-tabular>{money.format(invoiceTotal(next))}</span>{" "}
-                    in <span data-tabular>{days}</span> days
-                  </>
-                )}
+              {money.format(summary.outstanding)}
+            </dd>
+            {billed > 0 && (
+              <p className="mt-1 text-[0.8125rem] text-ink-tertiary">
+                <span data-tabular>{outstandingPct}%</span> of everything billed
               </p>
             )}
           </Card>
-        </section>
 
-        <InvoicesTable />
+          <Card variant="glass" className="rounded-2xl p-6">
+            <dt className="flex items-center gap-2 text-[0.6875rem] font-bold tracking-wide text-ink-tertiary uppercase">
+              <TrendingUp className="size-4" aria-hidden />
+              Paid to date
+            </dt>
+            <dd
+              data-tabular
+              className="mt-2 font-heading text-[2rem] leading-none font-bold text-ink"
+            >
+              {money.format(summary.paidToDate)}
+            </dd>
+          </Card>
+
+          <Card variant="glass" className="rounded-2xl p-6">
+            <dt className="flex items-center gap-2 text-[0.6875rem] font-bold tracking-wide text-ink-tertiary uppercase">
+              <CalendarClock className="size-4" aria-hidden />
+              Next due
+            </dt>
+            {summary.nextDue && days !== null ? (
+              <>
+                <dd
+                  data-tabular
+                  className="mt-2 font-heading text-[2rem] leading-none font-bold text-ink"
+                >
+                  {money.format(summary.nextDue.total)}
+                </dd>
+                <p className="mt-1 text-[0.8125rem] text-ink-tertiary">
+                  {summary.nextDue.number} ·{" "}
+                  {days < 0
+                    ? `${Math.abs(days)} days overdue`
+                    : days === 0
+                      ? "due today"
+                      : `in ${days} days`}{" "}
+                  ({longDate.format(new Date(`${summary.nextDue.dueDate}T00:00:00Z`))})
+                </p>
+              </>
+            ) : (
+              /* An honest empty state rather than a zero that reads as a balance. */
+              <dd className="mt-2 text-ink-tertiary">Nothing outstanding.</dd>
+            )}
+          </Card>
+        </dl>
+
+        <InvoicesTable invoices={invoices} />
       </div>
     </>
   );

@@ -2,17 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  Blocks,
-  BrainCircuit,
-  CheckCircle2,
-  DraftingCompass,
-  LineChart,
-  PlusCircle,
-  Rocket,
-  Search,
-  type LucideIcon,
-} from "lucide-react";
+import { CheckCircle2, Layers, PlusCircle, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -29,20 +19,30 @@ type Category = "Core" | "Specialized" | "Emerging" | "Strategy";
  */
 type Model = "Retainer" | "Project" | "Advisory" | "Performance";
 
+/**
+ * Cards come from `pricing_packages`, not from this file.
+ *
+ * There used to be a second hardcoded service catalogue here — its own titles,
+ * prices, categories and commercial models — so /pricing and /services could
+ * describe two different businesses and disagree about what things cost.
+ *
+ * Categories are open text in the database, so the filter is built from the
+ * categories actually present rather than from a fixed union. A category
+ * nobody uses can never appear, and a new one needs no code change.
+ */
 type Service = {
   slug: string;
   title: string;
   blurb: string;
-  icon: LucideIcon;
-  category: Category;
-  model: Model;
-  /** How the model is worded on the card, which is not always the model name. */
+  category: string;
+  model: string;
   modelLabel: string;
   price: string;
   features: string[];
+  href: string;
 };
 
-const accents: Record<Category, { chip: string; icon: string; badge: string }> = {
+const accents: Record<string, { chip: string; icon: string; badge: string }> = {
   Core: { chip: "bg-brand/10", icon: "text-brand", badge: "border-brand/30 bg-brand-subtle text-brand-subtle-fg" },
   Specialized: { chip: "bg-ion/10", icon: "text-ion", badge: "border-ion/30 bg-ion-subtle text-ion-subtle-fg" },
   Emerging: {
@@ -57,75 +57,27 @@ const accents: Record<Category, { chip: string; icon: string; badge: string }> =
   },
 };
 
-const services: Service[] = [
-  {
-    slug: "systems-design",
-    title: "Systems Design",
-    blurb:
-      "Scalable cloud-native architectures optimized for high-concurrency enterprise workloads.",
-    icon: DraftingCompass,
-    category: "Core",
-    model: "Retainer",
-    modelLabel: "Retainer",
-    price: "From $3,500/mo",
-    features: ["Microservices Mapping", "Multi-Cloud Scaling", "Auto-DevOps CI/CD"],
-  },
-  {
-    slug: "neural-ux-strategy",
-    title: "Neural UX Strategy",
-    blurb:
-      "AI-driven user behavior analysis and predictive interface design for conversion mastery.",
-    icon: BrainCircuit,
-    category: "Specialized",
-    model: "Project",
-    modelLabel: "Project-Based",
-    price: "From $12,000",
-    features: ["Biometric Eye-Tracking", "Predictive Heatmaps", "Dynamic Persona A/B"],
-  },
-  {
-    slug: "web3-integration",
-    title: "Web3 Integration",
-    blurb:
-      "Decentralized protocols, smart contract auditing, and tokenomic ecosystem development.",
-    icon: Blocks,
-    category: "Emerging",
-    model: "Retainer",
-    modelLabel: "Package",
-    price: "From $5,000/mo",
-    features: ["Smart Contract Dev", "Wallet Connect Auth", "Governance Design"],
-  },
-  {
-    slug: "market-intelligence",
-    title: "Market Intelligence",
-    blurb: "Data-driven competitive landscapes and growth modeling for series B+ ventures.",
-    icon: LineChart,
-    category: "Strategy",
-    model: "Advisory",
-    modelLabel: "Hourly",
-    price: "$350/hr",
-    features: ["Trend Forecasting", "Competitive Audit", "Exit Optimization"],
-  },
-  {
-    slug: "growth-acceleration",
-    title: "Growth Acceleration",
-    blurb:
-      "Full-funnel optimization and viral loop engineering to maximize LTV and minimize CAC.",
-    icon: Rocket,
-    category: "Core",
-    model: "Performance",
-    modelLabel: "Performance",
-    price: "Base + 5% Rev",
-    features: ["Viral Factor Design", "Retention Loops", "Scalable Acquisition"],
-  },
-];
+const fallbackAccent = {
+  chip: "bg-ink/5",
+  icon: "text-ink-secondary",
+  badge: "border-line-strong bg-surface-sunken text-ink-secondary",
+};
 
-const categories: (Category | "All")[] = ["All", "Core", "Specialized", "Emerging", "Strategy"];
-const models: (Model | "All")[] = ["All", "Retainer", "Project", "Advisory", "Performance"];
 
-export function ServiceDirectory() {
+export function ServiceDirectory({ services }: { services: Service[] }) {
   const [query, setQuery] = React.useState("");
-  const [category, setCategory] = React.useState<Category | "All">("All");
-  const [model, setModel] = React.useState<Model | "All">("All");
+  const [category, setCategory] = React.useState<string>("All");
+  const [model, setModel] = React.useState<string>("All");
+
+  // Built from the rows, so a filter can never offer a value nothing matches.
+  const categories = React.useMemo(
+    () => ["All", ...new Set(services.map((s) => s.category).filter(Boolean))],
+    [services]
+  );
+  const models = React.useMemo(
+    () => ["All", ...new Set(services.map((s) => s.model).filter(Boolean))],
+    [services]
+  );
 
   const shown = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -135,7 +87,7 @@ export function ServiceDirectory() {
       if (!q) return true;
       return `${s.title} ${s.blurb} ${s.features.join(" ")}`.toLowerCase().includes(q);
     });
-  }, [query, category, model]);
+  }, [services, query, category, model]);
 
   return (
     <>
@@ -217,7 +169,7 @@ export function ServiceDirectory() {
 
       <section className="mb-24 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {shown.map((service) => {
-          const accent = accents[service.category];
+          const accent = accents[service.category] ?? fallbackAccent;
           return (
             <Spotlight key={service.slug} className="h-full rounded-2xl">
               <Card
@@ -241,7 +193,7 @@ export function ServiceDirectory() {
                     accent.chip
                   )}
                 >
-                  <service.icon className={cn("size-7", accent.icon)} aria-hidden />
+                  <Layers className={cn("size-7", accent.icon)} aria-hidden />
                 </span>
 
                 <h3 className="mb-2 font-heading text-[1.75rem] leading-[1.3] font-semibold text-ink">
@@ -274,7 +226,7 @@ export function ServiceDirectory() {
                   <Button
                     variant="outline"
                     className="flex-1"
-                    render={<Link href={`/services/${service.slug}`} />}
+                    render={<Link href={service.href} />}
                   >
                     View Details
                   </Button>

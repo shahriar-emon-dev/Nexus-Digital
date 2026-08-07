@@ -3,9 +3,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Timer } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-import { authorFor, categoryTone, featuredPost } from "@/lib/posts";
-import { Avatar, AvatarFallback, AvatarImage, initials } from "@/components/ui/avatar";
+import { listPublishedPosts } from "@/lib/supabase/content-queries";
+import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { BlogIndex } from "./BlogIndex";
 import { NewsletterPanel } from "./NewsletterPanel";
@@ -16,15 +15,17 @@ export const metadata: Metadata = {
     "Weekly decodes of digital transformation and architectural excellence from the Nexus engineering team.",
 };
 
-export default function BlogPage() {
-  const post = featuredPost;
-  const author = authorFor(post);
+export default async function BlogPage() {
+  const posts = await listPublishedPosts();
+  // The editor's pick, else the newest. Never a hardcoded slug.
+  const post = posts.find((p) => p.isFeatured) ?? posts[0] ?? null;
 
   return (
     <>
       <div className="noise-field" aria-hidden />
 
-      {/* ── Featured post ──────────────────────────────────────────────── */}
+      {post ? (
+      /* ── Featured post ──────────────────────────────────────────────── */
       <section className="relative mx-auto max-w-7xl overflow-hidden px-4 pt-12 pb-20 md:px-10">
         <span
           className="bloom -top-40 -right-40 size-150 bg-brand/10 blur-[120px]"
@@ -34,17 +35,14 @@ export default function BlogPage() {
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div className="flex flex-col gap-8">
             <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-bold tracking-widest uppercase",
-                  categoryTone[post.category]
-                )}
-              >
-                {post.category}
-              </span>
+              {post.category && (
+                <span className="rounded-full border border-line-strong bg-surface-sunken px-3 py-1 text-xs font-bold tracking-widest text-ink-secondary uppercase">
+                  {post.category}
+                </span>
+              )}
               <span className="flex items-center gap-1 text-sm text-ink-tertiary">
                 <Timer className="size-4" aria-hidden />
-                {post.readMinutes} min read
+                {post.readMinutes ?? "—"} min read
               </span>
             </div>
 
@@ -58,16 +56,12 @@ export default function BlogPage() {
               {post.excerpt}
             </p>
 
-            {author && (
+            {post.authorName && (
               <div className="flex items-center gap-4">
                 <Avatar size="lg">
-                  <AvatarImage src={author.portrait} alt="" />
-                  <AvatarFallback>{initials(author.name)}</AvatarFallback>
+                  <AvatarFallback>{initials(post.authorName)}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <p className="font-medium text-ink">{author.name}</p>
-                  <p className="text-sm text-ink-tertiary">{author.role}</p>
-                </div>
+                <p className="font-medium text-ink">{post.authorName}</p>
               </div>
             )}
 
@@ -87,42 +81,34 @@ export default function BlogPage() {
             variant="glass"
             className="border-beam relative aspect-4/3 overflow-hidden rounded-[2rem] shadow-e4"
           >
-            <Image
-              src={post.image}
-              alt=""
-              fill
-              sizes="(min-width: 1024px) 50vw, 100vw"
-              className="object-cover opacity-70"
-              priority
-            />
-            {post.metrics && (
-              <dl className="absolute right-6 bottom-6 left-6 flex gap-4">
-                {post.metrics.map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="flex-1 rounded-2xl border border-line bg-graphite-1000/50 p-4 backdrop-blur-xl"
-                  >
-                    <dt className="text-[0.625rem] tracking-tight text-graphite-300 uppercase">
-                      {metric.label}
-                    </dt>
-                    <dd
-                      data-tabular
-                      className={cn(
-                        "text-lg font-bold",
-                        metric.tone === "brand" ? "text-brand" : "text-ion"
-                      )}
-                    >
-                      {metric.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+            {post.coverUrl && (
+              <Image
+                src={post.coverUrl}
+                alt=""
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="object-cover opacity-70"
+                priority
+              />
             )}
+            {/* The invented per-post metric chips ("Engagement 94.2%") were
+                removed rather than migrated — they were figures attached to
+                articles that nothing measured. */}
           </Card>
         </div>
       </section>
+      ) : (
+        <section className="mx-auto max-w-3xl px-4 py-24 text-center md:px-10">
+          <h1 className="font-heading text-[2.5rem] leading-tight font-bold text-ink">
+            Insights
+          </h1>
+          <p className="mt-4 text-lg text-ink-tertiary">
+            Nothing published yet. New writing from the engineering team appears here.
+          </p>
+        </section>
+      )}
 
-      <BlogIndex />
+      <BlogIndex posts={posts} />
       <NewsletterPanel />
     </>
   );

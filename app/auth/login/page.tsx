@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Info, ShieldCheck } from "lucide-react";
 
 import { AuthShell, BrandMark } from "@/components/auth/AuthShell";
+import { listPublishedTestimonials } from "@/lib/supabase/marketing-actions";
 import { QuoteRotator } from "@/components/auth/QuoteRotator";
 import { Card } from "@/components/ui/card";
 import { LoginForm } from "./LoginForm";
@@ -13,7 +14,9 @@ export const metadata: Metadata = {
   description: "Secure access to the Nexus client, staff and admin portals.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const quotes = await listPublishedTestimonials();
+
   return (
     <AuthShell
       brand={
@@ -32,7 +35,7 @@ export default function LoginPage() {
             }
           />
 
-          <QuoteRotator />
+          <QuoteRotator quotes={quotes} />
 
           <p className="relative z-10 max-w-xs text-ink-tertiary">
             Advanced encryption protocols active. Connection via AES-256 secure tunnel.
