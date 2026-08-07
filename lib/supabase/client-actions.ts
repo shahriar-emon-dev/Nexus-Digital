@@ -133,16 +133,16 @@ export async function createOrganization(form: FormData): Promise<Result> {
   if (values.name.length < 2) return { error: "Give the client a name." };
 
   const base = slugify(values.name) || "client";
-  let slug = base;
-  for (let n = 2; n < 50; n++) {
-    const { data: taken } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("slug", slug)
-      .maybeSingle();
-    if (!taken) break;
-    slug = `${base}-${n}`;
-  }
+  // One statement instead of up to 48 sequential round trips. The unique
+  // constraint still backs this; the RPC just stops the happy path from
+  // polling and stops a race surfacing as a raw constraint error.
+  const { data: allocated } = await supabase.rpc("next_available_slug", {
+    p_table: "organizations",
+    p_base: base,
+  });
+  // Falls back to the base when the RPC is unavailable; the unique constraint
+  // is still the thing that actually guarantees uniqueness.
+  const slug = allocated ?? base;
 
   const { error } = await supabase.from("organizations").insert({ ...values, slug });
   if (error) return { error: error.message };

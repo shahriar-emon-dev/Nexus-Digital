@@ -69,11 +69,22 @@ export async function middleware(request: NextRequest) {
 
   // Right portal, but the role's grant on the module governing this route is
   // below the minimum the route requires.
-  // The grant is resolved in updateSession, which reads role_grants for the
-  // one module governing this path — so authorisation compares the database
-  // enum, not a copy of the matrix held in application code.
-  if (required === "ADMIN" && !grantClearsRoute(user.grant, pathname)) {
-    const url = new URL("/admin", request.url);
+  //
+  // The grant is resolved in updateSession, which reads role_grants for the one
+  // module governing this path — so authorisation compares the database enum,
+  // not a copy of the matrix held in application code.
+  //
+  // Applied to all three portals. It used to be gated on `required === "ADMIN"`,
+  // which meant staff and client routes got portal separation and no module
+  // check at all. That was survivable only while those portals were mostly
+  // placeholders; now that they read real project, billing and messaging data
+  // it is not. Routes with no rule are unrestricted within their portal, which
+  // is what `grantClearsRoute` already returns for them.
+  const home = homeFor[user.portal];
+  if (pathname !== home && !grantClearsRoute(user.grant, pathname)) {
+    // Comparing against `home` first: if a rule ever covers a portal's own
+    // landing page, redirecting there would loop forever rather than deny.
+    const url = new URL(home, request.url);
     url.searchParams.set("denied", pathname);
     return NextResponse.redirect(url);
   }

@@ -161,16 +161,16 @@ export async function createProject(form: FormData): Promise<Result<{ id: string
   // Slug collisions are resolved with a suffix rather than refused: two clients
   // legitimately having a "Website Refresh" is not an error the user caused.
   const base = slugify(values.name) || "project";
-  let slug = base;
-  for (let n = 2; n < 50; n++) {
-    const { data: taken } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("slug", slug)
-      .maybeSingle();
-    if (!taken) break;
-    slug = `${base}-${n}`;
-  }
+  // One statement instead of up to 48 sequential round trips. The unique
+  // constraint still backs this; the RPC just stops the happy path from
+  // polling and stops a race surfacing as a raw constraint error.
+  const { data: allocated } = await supabase.rpc("next_available_slug", {
+    p_table: "projects",
+    p_base: base,
+  });
+  // Falls back to the base when the RPC is unavailable; the unique constraint
+  // is still the thing that actually guarantees uniqueness.
+  const slug = allocated ?? base;
 
   const { data, error } = await supabase
     .from("projects")

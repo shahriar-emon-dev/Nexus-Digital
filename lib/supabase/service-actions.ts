@@ -252,13 +252,10 @@ export async function setServiceFeatured(pageId: string, featured: boolean): Pro
 export async function reorderServices(pageIds: string[]): Promise<Result> {
   const supabase = await createClient();
 
-  for (const [index, pageId] of pageIds.entries()) {
-    const { error } = await supabase
-      .from("service_details")
-      .update({ display_order: index })
-      .eq("page_id", pageId);
-    if (error) return { error: error.message };
-  }
+  // One statement rather than one round trip per row; atomic, so a partial
+  // failure cannot leave the catalogue in a half-sorted state.
+  const { error } = await supabase.rpc("reorder_services", { p_page_ids: pageIds });
+  if (error) return { error: error.message };
 
   revalidatePath("/admin/services");
   revalidatePath("/services");

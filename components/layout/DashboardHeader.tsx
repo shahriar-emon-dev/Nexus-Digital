@@ -4,53 +4,21 @@ import * as React from "react";
 import { Building2, FolderKanban, LifeBuoy, Receipt, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { clientAccount, portalProjects } from "@/lib/client-portal";
 import { CommandPalette, type CommandItem } from "@/components/shared/CommandPalette";
 import { NotificationBell, type Notification } from "@/components/shared/NotificationBell";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
-/** Shared with `AdminCommandBar`, so both shells search the same set. */
-export const defaultCommands: CommandItem[] = [
-  // Derived from the project list so the palette jumps to the real detail route
-  // and cannot invent a client — it previously listed a "Halcyon" account that
-  // existed nowhere else, next to Northwind's own Paid Media project.
-  ...portalProjects.map((project) => ({
-    id: project.id,
-    group: "Projects",
-    label: `${clientAccount.name} — ${project.name}`,
-    hint: project.status,
-    href: project.href,
-    icon: FolderKanban,
-  })),
-  { id: "i1", group: "Invoices", label: "INV-2043", hint: "Overdue · $12,400", href: "/client/invoices", icon: Receipt },
-  { id: "c1", group: "Clients", label: "Northwind Retail", href: "/admin/clients", icon: Building2 },
-  { id: "s1", group: "People", label: "Dez Okafor", hint: "Team Lead", href: "/admin/staff", icon: Users },
-  { id: "h1", group: "Help", label: "Contact support", href: "/contact", icon: LifeBuoy },
-];
-
-const defaultNotifications: Notification[] = [
-  {
-    id: "n1",
-    kind: "message",
-    title: "Dez replied on Site rebuild",
-    body: "Staging is up — take a look at the new checkout flow when you get a minute.",
-    time: "12 min ago",
-  },
-  {
-    id: "n2",
-    kind: "invoice",
-    title: "Invoice INV-2043 is overdue",
-    body: "$12,400 · due 4 days ago",
-    time: "2 hours ago",
-  },
-  {
-    id: "n3",
-    kind: "project",
-    title: "Milestone completed: Design system",
-    time: "Yesterday",
-    read: true,
-  },
-];
+/**
+ * The palette and the bell are fed by the surrounding layout.
+ *
+ * Both used to ship hardcoded contents: the palette listed a "Halcyon" account
+ * that existed nowhere else and an invoice INV-2043 that was never issued, and
+ * the bell showed three invented notifications to everybody, including the
+ * "$12,400 overdue" line. Empty is the correct default — a shell that has not
+ * been given data should show none, not somebody else's.
+ */
+const noCommands: CommandItem[] = [];
+const noNotifications: Notification[] = [];
 
 /**
  * Shared top bar for all three dashboards. Sticky and glassy so long tables keep
@@ -63,8 +31,8 @@ export function DashboardHeader({
   breadcrumbs,
   actions,
   presence,
-  commands = defaultCommands,
-  notifications = defaultNotifications,
+  commands = noCommands,
+  notifications = noNotifications,
   className,
 }: {
   title: string;

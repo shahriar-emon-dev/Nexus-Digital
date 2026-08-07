@@ -198,13 +198,11 @@ export async function reorderMenuItems(
 ): Promise<NavResult> {
   const supabase = await createClient();
 
-  for (const row of ordered) {
-    const { error } = await supabase
-      .from("menu_items")
-      .update({ position: row.position, parent_id: row.parent_id })
-      .eq("id", row.id);
-    if (error) return { error: msg(error.message, "reorder") };
-  }
+  // One statement, so a failure part-way cannot leave half an ordering behind.
+  // The loop this replaces returned early on the first error and left the rest
+  // of the menu at its previous positions.
+  const { error } = await supabase.rpc("reorder_menu_items", { p_items: ordered });
+  if (error) return { error: msg(error.message, "reorder") };
 
   revalidateNav();
   return { ok: true };

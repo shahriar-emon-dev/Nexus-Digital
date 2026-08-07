@@ -10,7 +10,6 @@ import {
   Landmark,
   Mail,
   MoveRight,
-  Paperclip,
   Rocket,
   ShieldCheck,
   Store,
@@ -21,22 +20,21 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { healthTone, type PortalProject } from "@/lib/client-portal";
 import {
-  clientAccount,
-  inFlightProjects,
-  portalKpis,
-  portalMessages,
-  upcomingMeeting,
-  type PortalProject,
-} from "@/lib/client-portal";
-import { leadership } from "@/lib/team";
+  getClientAccount,
+  getNextMeeting,
+  getPortalKpis,
+  getRecentMessages,
+} from "@/lib/supabase/account-queries";
+import { listProjects } from "@/lib/supabase/project-queries";
+import { listPublicStaff } from "@/lib/supabase/staff-queries";
 import { Avatar, AvatarFallback, AvatarGroup, initials } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ActionFab } from "@/components/client/ActionFab";
-import { HealthGauge } from "@/components/client/HealthGauge";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -63,13 +61,19 @@ const tone = {
   orchid: { text: "text-chart-3", bar: "bg-chart-3", chip: "bg-chart-3/10 text-chart-3" },
 } as const;
 
-const memberById = (id: string) => leadership.find((m) => m.id === id);
+export default async function ClientOverviewPage() {
+  const [account, kpis, projects, messages, meeting, staff] = await Promise.all([
+    getClientAccount(),
+    getPortalKpis(),
+    listProjects(),
+    getRecentMessages(),
+    getNextMeeting(),
+    listPublicStaff(),
+  ]);
 
-export default function ClientOverviewPage() {
-  const attendees = upcomingMeeting.attendeeIds
-    .map((id) => memberById(id))
-    .filter((m): m is NonNullable<typeof m> => Boolean(m))
-    .map((m) => ({ name: m.name }));
+  const memberById = (id: string) => staff.find((m) => m.id === id);
+  const inFlight = projects.filter((p) => p.status === "Active").slice(0, 3);
+  const health = account?.health ? healthTone[account.health] : null;
 
   return (
     <>
@@ -87,19 +91,39 @@ export default function ClientOverviewPage() {
           <div className="relative z-10 flex flex-col gap-4">
             <h2 className="font-heading text-[3rem] leading-[1.2] font-bold tracking-tight text-balance text-ink">
               Welcome back,{" "}
-              <span className="text-brand">{clientAccount.name} Team.</span>
+              <span className="text-brand">{account?.name ?? "there"}.</span>
             </h2>
-            <p className="max-w-xl text-lg leading-relaxed text-ink-secondary">
-              {clientAccount.welcome}
-            </p>
+            {/* Only rendered when an account manager has actually written one.
+                The copy this replaces claimed every client was "performing at
+                peak efficiency" against benchmarks nothing measured. */}
+            {account?.welcome && (
+              <p className="max-w-xl text-lg leading-relaxed text-ink-secondary">
+                {account.welcome}
+              </p>
+            )}
           </div>
 
-          <HealthGauge score={clientAccount.healthScore} basis={clientAccount.healthBasis} />
+          {/* A gauge would imply a measured percentage. `organizations.health`
+              is a state an account manager sets, so it is shown as the state it
+              is, with its provenance named. */}
+          {health && (
+            <div className="relative z-10 flex flex-col items-center gap-3 rounded-2xl border border-line bg-surface-sunken p-6 text-center">
+              <p className="text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase">
+                Account status
+              </p>
+              <Badge variant={health.tone} className="text-base">
+                {health.label}
+              </Badge>
+              <p className="max-w-[14rem] text-[0.8125rem] text-ink-tertiary">
+                Recorded by your account manager.
+              </p>
+            </div>
+          )}
         </Card>
 
         {/* ── KPIs ───────────────────────────────────────────────────────── */}
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {portalKpis.map((kpi) => {
+          {kpis.map((kpi) => {
             const Icon = kpiIcons[kpi.icon];
             const t = tone[kpi.tone];
             return (
@@ -180,7 +204,7 @@ export default function ClientOverviewPage() {
           </div>
 
           <ul className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {inFlightProjects.map((project) => {
+            {inFlight.map((project) => {
               const Icon = projectIcons[project.icon];
               const t = tone[project.tone];
               const lead = memberById(project.leadId);
@@ -264,38 +288,34 @@ export default function ClientOverviewPage() {
             </div>
 
             <ul className="p-2">
-              {portalMessages.map((message) => {
-                const author = memberById(message.authorId);
-                return (
-                  <li key={message.id}>
-                    <Link
-                      href="/client/messages"
-                      className="flex items-start gap-4 rounded-xl p-4 transition-colors hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none"
-                    >
-                      <Avatar size="default" className="rounded-lg">
-                        <AvatarFallback>{initials(author?.name ?? "?")}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <span className="font-semibold text-ink">{author?.name}</span>
-                          <span className="shrink-0 text-[0.8125rem] text-ink-tertiary">
-                            {message.time}
-                          </span>
-                        </div>
-                        <p className="line-clamp-1 text-[0.8125rem] text-ink-secondary">
-                          {message.preview}
-                        </p>
-                        {message.attachment && (
-                          <p className="mt-2 flex items-center gap-2 text-[0.625rem] text-ink-tertiary">
-                            <Paperclip className="size-3.5" aria-hidden />
-                            {message.attachment}
-                          </p>
-                        )}
+              {messages.length === 0 && (
+                <li className="px-4 py-10 text-center text-[0.8125rem] text-ink-tertiary">
+                  No messages yet. Your project channel opens as soon as work starts.
+                </li>
+              )}
+              {messages.map((message) => (
+                <li key={message.id}>
+                  <Link
+                    href="/client/messages"
+                    className="flex items-start gap-4 rounded-xl p-4 transition-colors hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none"
+                  >
+                    <Avatar size="default" className="rounded-lg">
+                      <AvatarFallback>{initials(message.authorName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center justify-between gap-3">
+                        <span className="font-semibold text-ink">{message.authorName}</span>
+                        <span className="shrink-0 text-[0.8125rem] text-ink-tertiary">
+                          {message.time}
+                        </span>
                       </div>
-                    </Link>
-                  </li>
-                );
-              })}
+                      <p className="line-clamp-1 text-[0.8125rem] text-ink-secondary">
+                        {message.preview}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
             </ul>
 
             <Button
@@ -316,34 +336,56 @@ export default function ClientOverviewPage() {
             <div className="flex flex-col items-center gap-6 p-8 text-center">
               <span className="relative grid size-20 place-items-center rounded-full bg-brand/10">
                 <CalendarDays className="size-10 text-brand" aria-hidden />
-                <span className="absolute -top-2 -right-2 grid size-8 place-items-center rounded-full bg-danger text-sm font-bold text-canvas">
-                  1<span className="sr-only"> meeting scheduled</span>
-                </span>
               </span>
 
-              <div>
-                <h3 className="font-heading text-2xl font-semibold text-ink">
-                  {upcomingMeeting.title}
-                </h3>
-                <p className="mt-2 text-ink-tertiary">
-                  {upcomingMeeting.when} • {upcomingMeeting.durationMinutes} minutes
-                </p>
-              </div>
+              {meeting ? (
+                <>
+                  <div>
+                    <h3 className="font-heading text-2xl font-semibold text-ink">
+                      {meeting.title}
+                    </h3>
+                    <p className="mt-2 text-ink-tertiary">
+                      {meeting.when} • {meeting.durationMinutes} minutes
+                    </p>
+                  </div>
 
-              <AvatarGroup
-                people={attendees}
-                size="sm"
-                max={2 + upcomingMeeting.extraAttendees}
-              />
+                  <AvatarGroup
+                    people={meeting.attendees.map((a) => ({ name: a.name }))}
+                    size="sm"
+                    max={4}
+                  />
 
-              <Button
-                size="xl"
-                className="rounded-xl px-12 shadow-[0_0_20px_var(--brand-glow)] transition-transform hover:scale-105"
-                render={<Link href="/client/meetings" />}
-              >
-                Join Video Room
-                <Video />
-              </Button>
+                  <Button
+                    size="xl"
+                    className="rounded-xl px-12 shadow-[0_0_20px_var(--brand-glow)] transition-transform hover:scale-105"
+                    render={<Link href="/client/meetings" />}
+                  >
+                    Join Video Room
+                    <Video />
+                  </Button>
+                </>
+              ) : (
+                /* A real empty state. The card used to hard-code a red "1"
+                   badge, so it announced a meeting even with none scheduled. */
+                <>
+                  <div>
+                    <h3 className="font-heading text-xl font-semibold text-ink">
+                      Nothing scheduled
+                    </h3>
+                    <p className="mt-2 text-ink-tertiary">
+                      When your team books a session it will appear here.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="rounded-xl"
+                    render={<Link href="/client/meetings" />}
+                  >
+                    Request a meeting
+                  </Button>
+                </>
+              )}
             </div>
           </Card>
         </section>

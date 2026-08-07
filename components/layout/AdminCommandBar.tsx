@@ -4,13 +4,27 @@ import { useRouter } from "next/navigation";
 import { useRealtime } from "@/lib/supabase/use-realtime";
 
 import * as React from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Building2, FileText, FolderKanban, LifeBuoy, Receipt, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import type { PaletteItem } from "@/lib/supabase/command-queries";
+
+/**
+ * Icons are resolved here, not on the server. A React component cannot cross
+ * the server/client boundary as a prop, so the query names the icon and this
+ * map turns the name into the component.
+ */
+const paletteIcons = {
+  project: FolderKanban,
+  client: Building2,
+  person: Users,
+  invoice: Receipt,
+  page: FileText,
+  help: LifeBuoy,
+} as const;
 import { EmergencyLock } from "@/components/admin/EmergencyLock";
-import { defaultCommands } from "./DashboardHeader";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
@@ -49,7 +63,18 @@ function compact(n: number) {
       : money.format(n);
 }
 
-export function AdminCommandBar({ metrics }: { metrics?: CommandBarMetrics }) {
+export function AdminCommandBar({
+  metrics,
+  commands = [],
+}: {
+  metrics?: CommandBarMetrics;
+  /**
+   * Supplied by the admin layout from real rows. Defaults to empty rather than
+   * to a sample set: the palette used to ship a fixed list naming a client and
+   * an invoice that existed nowhere in the database.
+   */
+  commands?: PaletteItem[];
+}) {
   const router = useRouter();
 
   // Realtime: recording a payment or issuing an invoice updates the bar on
@@ -160,7 +185,7 @@ export function AdminCommandBar({ metrics }: { metrics?: CommandBarMetrics }) {
             Admin pages have no `DashboardHeader`, so this is the only ⌘K entry
             point in this shell. */}
         <div className="hidden w-56 xl:block">
-          <CommandPalette items={defaultCommands} />
+          <CommandPalette items={commands.map((c) => ({ ...c, icon: paletteIcons[c.icon] }))} />
         </div>
       </div>
     </header>

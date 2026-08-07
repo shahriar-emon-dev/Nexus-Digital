@@ -42,10 +42,18 @@ const growthDisciplines = [
   "Data Analytics Engineering",
 ];
 
-const impactMetrics = [
-  { label: "Retention Rate", value: "+42%", fill: 85, bar: "bg-chart-1", text: "text-chart-1" },
-  { label: "User Engagement", value: "+68%", fill: 72, bar: "bg-chart-2", text: "text-chart-2" },
-  { label: "Load Speed", value: "−1.2s", fill: 94, bar: "bg-chart-3", text: "text-chart-3" },
+/**
+ * What this engagement produces, rather than what it supposedly achieved.
+ *
+ * This panel used to read "Retention Rate +42% · User Engagement +68% · Load
+ * Speed −1.2s" against filled progress bars. Those are client outcomes, stated
+ * as fact on a public sales page, and nothing measured any of them. Deliverables
+ * are things the agency actually hands over, so they are safe to name.
+ */
+const engagementIncludes = [
+  "Measurement plan agreed before build",
+  "Baseline captured from your own analytics",
+  "Post-launch report against that baseline",
 ];
 
 export default function ServicesPage() {
@@ -272,35 +280,22 @@ export default function ServicesPage() {
                 <div className="relative overflow-hidden rounded-xl border border-line-subtle bg-surface-sunken p-6 md:w-1/2">
                   <div className="relative z-10">
                     <h4 className="mb-4 text-overline font-semibold tracking-(--text-overline--letter-spacing) text-ink-tertiary uppercase">
-                      Impact Metrics
+                      How we measure it
                     </h4>
-                    <dl className="flex flex-col gap-6">
-                      {impactMetrics.map((metric) => (
-                        // dt/dd must be direct children of the single wrapper
-                        // <div> that a <dl> permits.
-                        <div
-                          key={metric.label}
-                          className="flex flex-wrap justify-between gap-x-3"
+                    <ul className="flex flex-col gap-4">
+                      {engagementIncludes.map((item) => (
+                        <li
+                          key={item}
+                          className="flex items-start gap-3 text-[0.8125rem] text-ink-secondary"
                         >
-                          <dt className="text-xs font-semibold text-ink-secondary">
-                            {metric.label}
-                          </dt>
-                          <dd data-tabular className={cn("text-xs font-semibold", metric.text)}>
-                            {metric.value}
-                          </dd>
-                          {/* Decorative — the figure above carries the value. */}
-                          <div
-                            className="mt-2 h-1 w-full overflow-hidden rounded-full bg-line"
+                          <span
+                            className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand"
                             aria-hidden
-                          >
-                            <div
-                              className={cn("h-full rounded-full", metric.bar)}
-                              style={{ width: `${metric.fill}%` }}
-                            />
-                          </div>
-                        </div>
+                          />
+                          {item}
+                        </li>
                       ))}
-                    </dl>
+                    </ul>
                   </div>
 
                   <svg

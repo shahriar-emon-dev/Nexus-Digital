@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { subscribeToNewsletter } from "@/lib/supabase/newsletter-actions";
 
 /**
  * Services come from the catalogue. Two of the four hardcoded links here
@@ -80,13 +81,11 @@ export function PublicFooter({
             Pioneering the digital frontier through technical precision and aesthetic mastery.
             We build the future of the web.
           </p>
-          <p className="inline-flex w-fit items-center gap-2 rounded-full border border-success-line bg-success-subtle px-3 py-1 text-xs font-bold tracking-widest text-success uppercase">
-            <span className="relative flex size-2" aria-hidden>
-              <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-70 motion-reduce:animate-none" />
-              <span className="relative size-2 rounded-full bg-success" />
-            </span>
-            All systems operational 99.99%
-          </p>
+          {/* Was a live-looking pill reading "All systems operational 99.99%".
+              Nothing monitors uptime, so the pulse implied a status feed that
+              does not exist and the figure was typed in. Removed rather than
+              replaced: a status badge is only worth showing when something is
+              actually measuring the status. */}
         </div>
 
         {columns.map((col) => (
@@ -166,12 +165,16 @@ export function PublicFooter({
 function NewsletterForm({ className }: { className?: string }) {
   const [email, setEmail] = React.useState("");
   const [state, setState] = React.useState<"idle" | "invalid" | "done">("idle");
+  const [pending, startTransition] = React.useTransition();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: POST to a real list. Nothing leaves the browser today.
-    const valid = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email);
-    setState(valid ? "done" : "invalid");
+    startTransition(async () => {
+      // The address is recorded now. This form used to validate it, show the
+      // success panel, and discard it — every signup the site ever took is gone.
+      const result = await subscribeToNewsletter(email, "footer");
+      setState("error" in result ? "invalid" : "done");
+    });
   };
 
   if (state === "done") {
@@ -213,8 +216,8 @@ function NewsletterForm({ className }: { className?: string }) {
           Enter a valid email address.
         </p>
       )}
-      <Button type="submit" variant="secondary" className="rounded-xl">
-        Subscribe
+      <Button type="submit" variant="secondary" className="rounded-xl" disabled={pending}>
+        {pending ? "Subscribing…" : "Subscribe"}
       </Button>
     </form>
   );

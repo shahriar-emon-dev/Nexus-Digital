@@ -11,18 +11,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { portalProjects } from "@/lib/client-portal";
-import {
-  daysUntil,
-  meetingKindTone,
-  meetingStats,
-  nextMeeting,
-  pastMeetings,
-  relativeDay,
-  upcomingMeetings,
-  type Meeting,
-} from "@/lib/meetings";
-import { leadership } from "@/lib/team";
+import { meetingKindTone } from "@/lib/portal-tones";
+import { meetingBuckets, type Meeting } from "@/lib/supabase/meeting-actions";
 import { AvatarGroup } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,18 +32,24 @@ const timeFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
-const attendeesOf = (meeting: Meeting) =>
-  meeting.attendeeIds
-    .map((id) => leadership.find((m) => m.id === id))
-    .filter((m): m is NonNullable<typeof m> => Boolean(m))
-    .map((m) => ({ name: m.name }));
+const attendeesOf = (meeting: Meeting) => meeting.attendees.map((a) => ({ name: a.name }));
 
-const projectOf = (meeting: Meeting) =>
-  meeting.projectId ? portalProjects.find((p) => p.id === meeting.projectId) : undefined;
+/** Whole days until a timestamp; negative once it has passed. */
+const daysUntil = (iso: string) =>
+  Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 
-export default function ClientMeetingsPage() {
-  const rest = upcomingMeetings.slice(1);
-  const countdown = daysUntil(nextMeeting.startsAt);
+const relativeDay = (iso: string) => {
+  const days = daysUntil(iso);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days > 1 && days < 7) return `In ${days} days`;
+  return null;
+};
+
+export default async function ClientMeetingsPage() {
+  const { upcoming, past, next: nextMeeting, stats: meetingStats } = await meetingBuckets();
+  const rest = upcoming.slice(1);
+  const countdown = nextMeeting ? daysUntil(nextMeeting.starts_at) : 0;
 
   return (
     <>
@@ -71,8 +67,8 @@ export default function ClientMeetingsPage() {
             </h1>
             <p className="mt-2 text-ink-tertiary">
               <span data-tabular>{meetingStats.upcoming}</span> scheduled ·{" "}
-              <span data-tabular>{meetingStats.hoursScheduled}</span> hours ·{" "}
-              <span data-tabular>{meetingStats.past}</span> with recaps
+              <span data-tabular>{Math.round(meetingStats.totalMinutes / 60)}</span> hours ·{" "}
+              <span data-tabular>{past.length}</span> with recaps
             </p>
           </div>
           {/* TODO: open the scheduler once the meetings API exists. */}
@@ -83,6 +79,7 @@ export default function ClientMeetingsPage() {
         </header>
 
         {/* ── Next up ───────────────────────────────────────────────────── */}
+        {nextMeeting ? (
         <Card
           variant="glass"
           className="beam-rotate flex-col justify-between gap-8 rounded-3xl p-8 lg:flex-row lg:items-center"
@@ -106,16 +103,16 @@ export default function ClientMeetingsPage() {
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-secondary">
               <span className="flex items-center gap-2">
                 <CalendarDays className="size-4 shrink-0 text-brand" aria-hidden />
-                <time dateTime={nextMeeting.startsAt} data-tabular>
-                  {relativeDay(nextMeeting.startsAt) ??
-                    dayFormat.format(new Date(nextMeeting.startsAt))}
+                <time dateTime={nextMeeting.starts_at} data-tabular>
+                  {relativeDay(nextMeeting.starts_at) ??
+                    dayFormat.format(new Date(nextMeeting.starts_at))}
                   {" · "}
-                  {timeFormat.format(new Date(nextMeeting.startsAt))} UTC
+                  {timeFormat.format(new Date(nextMeeting.starts_at))} UTC
                 </time>
               </span>
               <span className="flex items-center gap-2">
                 <Clock className="size-4 shrink-0 text-brand" aria-hidden />
-                <span data-tabular>{nextMeeting.durationMinutes}</span> minutes
+                <span data-tabular>{nextMeeting.duration_minutes}</span> minutes
               </span>
             </p>
 
@@ -136,7 +133,7 @@ export default function ClientMeetingsPage() {
             <AvatarGroup
               people={attendeesOf(nextMeeting)}
               size="default"
-              max={2 + nextMeeting.extraAttendees}
+              max={4}
             />
             <Button
               size="xl"
@@ -155,6 +152,20 @@ export default function ClientMeetingsPage() {
             </p>
           </div>
         </Card>
+        ) : (
+          /* A real empty state. Everything above assumed a meeting always
+             existed, because the static array always had one. */
+          <Card variant="glass" className="items-center gap-3 rounded-3xl p-10 text-center">
+            <CalendarDays className="size-8 text-ink-tertiary" aria-hidden />
+            <h2 className="font-heading text-xl font-semibold text-ink">
+              Nothing scheduled
+            </h2>
+            <p className="max-w-md text-ink-tertiary">
+              When your team books a review, workshop or handover it will appear here
+              with its agenda and attendees.
+            </p>
+          </Card>
+        )}
 
         {/* ── Scheduled ─────────────────────────────────────────────────── */}
         {rest.length > 0 && (
@@ -174,13 +185,13 @@ export default function ClientMeetingsPage() {
         <section className="flex flex-col gap-5 pb-6">
           <h2 className="font-heading text-xl font-semibold text-ink">Past meetings</h2>
 
-          {pastMeetings.length === 0 ? (
+          {past.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-line px-6 py-12 text-center text-ink-tertiary">
               No meetings have taken place yet.
             </p>
           ) : (
             <ul className="flex flex-col gap-4">
-              {pastMeetings.map((meeting) => (
+              {past.map((meeting) => (
                 <li key={meeting.id}>
                   <PastCard meeting={meeting} />
                 </li>
@@ -194,8 +205,10 @@ export default function ClientMeetingsPage() {
 }
 
 function ScheduledCard({ meeting }: { meeting: Meeting }) {
-  const project = projectOf(meeting);
-  const days = daysUntil(meeting.startsAt);
+  const project = meeting.projectName
+    ? { name: meeting.projectName, href: `/client/projects/${meeting.projectSlug ?? ""}` }
+    : undefined;
+  const days = daysUntil(meeting.starts_at);
 
   return (
     <Card variant="glass" lift className="h-full gap-4 rounded-2xl p-6">
@@ -213,12 +226,12 @@ function ScheduledCard({ meeting }: { meeting: Meeting }) {
       </h3>
 
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem] text-ink-tertiary">
-        <time dateTime={meeting.startsAt} data-tabular>
-          {dayFormat.format(new Date(meeting.startsAt))} ·{" "}
-          {timeFormat.format(new Date(meeting.startsAt))} UTC
+        <time dateTime={meeting.starts_at} data-tabular>
+          {dayFormat.format(new Date(meeting.starts_at))} ·{" "}
+          {timeFormat.format(new Date(meeting.starts_at))} UTC
         </time>
         <span aria-hidden>·</span>
-        <span data-tabular>{meeting.durationMinutes} min</span>
+        <span data-tabular>{meeting.duration_minutes} min</span>
       </p>
 
       {project && (
@@ -234,7 +247,7 @@ function ScheduledCard({ meeting }: { meeting: Meeting }) {
         <AvatarGroup
           people={attendeesOf(meeting)}
           size="sm"
-          max={2 + meeting.extraAttendees}
+          max={4}
         />
         <Button variant="outline" size="sm" render={<Link href="/client/messages" />}>
           Details
@@ -245,7 +258,9 @@ function ScheduledCard({ meeting }: { meeting: Meeting }) {
 }
 
 function PastCard({ meeting }: { meeting: Meeting }) {
-  const project = projectOf(meeting);
+  const project = meeting.projectName
+    ? { name: meeting.projectName, href: `/client/projects/${meeting.projectSlug ?? ""}` }
+    : undefined;
 
   return (
     <Card variant="glass" lift className="gap-5 rounded-2xl p-6">
@@ -256,11 +271,11 @@ function PastCard({ meeting }: { meeting: Meeting }) {
               {meeting.kind}
             </Badge>
             <time
-              dateTime={meeting.startsAt}
+              dateTime={meeting.starts_at}
               data-tabular
               className="text-[0.75rem] text-ink-tertiary"
             >
-              {dayFormat.format(new Date(meeting.startsAt))}
+              {dayFormat.format(new Date(meeting.starts_at))}
             </time>
             {project && (
               <Link

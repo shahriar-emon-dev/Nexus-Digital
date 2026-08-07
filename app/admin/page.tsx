@@ -1,7 +1,9 @@
+import * as React from "react";
 import type { Metadata } from "next";
-import { Bolt, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { Briefcase, ShieldCheck, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { getAdminDashboard } from "@/lib/supabase/dashboard-queries";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AccessDeniedNotice } from "@/components/admin/AccessDeniedNotice";
@@ -10,40 +12,17 @@ import { RevenueChart } from "@/components/admin/RevenueChart";
 
 export const metadata: Metadata = { title: "Executive Dashboard" };
 
-const health = [
-  { label: "On-Time Completion", value: "94%", fill: 94, bar: "bg-chart-1", text: "text-chart-1" },
-  { label: "Resource Utilization", value: "78%", fill: 78, bar: "bg-chart-2", text: "text-chart-2" },
-  { label: "Client Satisfaction", value: "4.9/5", fill: 98, bar: "bg-chart-3", text: "text-chart-3" },
-];
+/** Named on the server, resolved to a component here. */
+const summaryIcons: Record<string, LucideIcon> = {
+  pipeline: TrendingUp,
+  people: Users,
+  projects: Briefcase,
+  revenue: Wallet,
+};
 
-const summary = [
-  {
-    icon: TrendingUp,
-    chip: "bg-ion/10 text-ion",
-    title: "Active Pipeline",
-    value: "$2,140,000",
-    note: "+18% growth from previous quarter",
-    featured: false,
-  },
-  {
-    icon: Users,
-    chip: "bg-brand/10 text-brand",
-    title: "Talent Overhead",
-    value: "42 Units",
-    note: "3 open roles in High-Performance Labs",
-    featured: false,
-  },
-  {
-    icon: Bolt,
-    chip: "bg-brand/20 text-brand",
-    title: "Agency Velocity",
-    value: "High",
-    note: "Optimal delivery speed maintained for 12 days",
-    featured: true,
-  },
-];
+export default async function AdminDashboardPage() {
+  const { summary, health } = await getAdminDashboard();
 
-export default function AdminDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-8 p-5 lg:p-10">
       <AccessDeniedNotice />
@@ -82,62 +61,52 @@ export default function AdminDashboardPage() {
                   key={row.label}
                   className="flex flex-wrap justify-between gap-x-3 text-xs"
                 >
-                    <dt className="text-ink-tertiary">{row.label}</dt>
-                    <dd data-tabular className={cn("font-bold", row.text)}>
-                      {row.value}
-                    </dd>
-                  {/* Decorative — the figure above carries the value. */}
+                  <dt className="text-ink-tertiary">{row.label}</dt>
+                  <dd data-tabular className="font-bold text-ink">
+                    {row.display}
+                  </dd>
+                  {/* Decorative — the figure above carries the value. A null
+                      percentage means nothing measurable exists yet, so the
+                      track renders empty rather than at an invented width. */}
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-line" aria-hidden>
-                    <div
-                      className={cn("h-full rounded-full", row.bar)}
-                      style={{ width: `${row.fill}%` }}
-                    />
+                    {row.percent !== null && (
+                      <div
+                        className="h-full rounded-full bg-brand"
+                        style={{ width: `${row.percent}%` }}
+                      />
+                    )}
                   </div>
+                  <p className="w-full text-[0.6875rem] text-ink-tertiary">{row.basis}</p>
                 </div>
               ))}
             </dl>
           </div>
 
-          <p className="mt-8 flex items-center gap-3 rounded-xl border border-success-line bg-success-subtle p-4">
-            <span className="size-2 shrink-0 rounded-full bg-success" aria-hidden />
-            <span className="text-[0.6875rem] font-bold text-ink">
-              No critical blockers reported today
-            </span>
-          </p>
         </Card>
 
         {summary.map((item) => (
           <Card
-            key={item.title}
+            key={item.id}
             variant="glass"
-            className={cn(
-              "col-span-12 rounded-2xl p-6 md:col-span-4",
-              item.featured && "border-brand/20 bg-brand/5"
-            )}
+            className="col-span-12 rounded-2xl p-6 md:col-span-3"
           >
             <div className="mb-4 flex items-center gap-4">
-              <span className={cn("grid size-10 place-items-center rounded-full", item.chip)}>
-                <item.icon className="size-5" aria-hidden />
+              <span className="grid size-10 place-items-center rounded-full bg-brand/15 text-brand">
+                {React.createElement(summaryIcons[item.icon] ?? TrendingUp, {
+                  className: "size-5",
+                  "aria-hidden": true,
+                } as never)}
               </span>
               <h3 className="font-heading text-base font-bold text-ink">{item.title}</h3>
             </div>
-            <p
-              data-tabular
-              className={cn(
-                "font-heading text-[2rem] leading-none font-bold",
-                item.featured ? "text-brand" : "text-ink"
-              )}
-            >
+            <p data-tabular className="font-heading text-[2rem] leading-none font-bold text-ink">
               {item.value}
             </p>
-            <p
-              className={cn(
-                "mt-2 text-[0.8125rem]",
-                item.featured ? "text-brand/70" : "text-ink-tertiary"
-              )}
-            >
-              {item.note}
-            </p>
+            {/* Absent rather than padded with a claim when there is nothing
+                meaningful to add. */}
+            {item.note && (
+              <p className="mt-2 text-[0.8125rem] text-ink-tertiary">{item.note}</p>
+            )}
           </Card>
         ))}
 

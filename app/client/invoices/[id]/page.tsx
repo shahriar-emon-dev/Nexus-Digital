@@ -12,7 +12,7 @@ import {
   invoices,
   money,
 } from "@/lib/invoices";
-import { portalProjects } from "@/lib/client-portal";
+import { listProjects } from "@/lib/supabase/project-queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,13 +36,13 @@ const longDate = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-export default function InvoiceDetailPage({ params }: Params) {
+export default async function InvoiceDetailPage({ params }: Params) {
   const invoice = invoiceById(params.id);
   if (!invoice) notFound();
 
   const totals = invoiceTotals(invoice);
   const overdue = invoice.status === "Overdue";
-  const project = portalProjects.find((p) => p.id === invoice.projectId);
+  const project = (await listProjects()).find((p) => p.id === invoice.projectId);
 
   return (
     <>

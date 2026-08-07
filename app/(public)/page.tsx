@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { getMarketingStats } from "@/lib/supabase/marketing-stats";
 import { getSiteSettings } from "@/lib/supabase/nav-actions";
 import { getPublishedPage } from "@/lib/supabase/page-actions";
 import { createClient } from "@/lib/supabase/server";
@@ -68,13 +69,6 @@ const capabilities = [
   },
 ] as const;
 
-const stats = [
-  { value: 99, suffix: "%", label: "Uptime SLA", tone: "brand" },
-  { value: 12, suffix: "M+", label: "Daily API requests", tone: "ion" },
-  { value: 250, suffix: "+", label: "Project deliveries", tone: "orchid" },
-  { value: 4.9, suffix: "/5", decimalPlaces: 1, label: "Client rating", tone: "ink" },
-] as const;
-
 const stack = [
   { icon: Cloud, name: "Forge" },
   { icon: Zap, name: "Velocity" },
@@ -86,7 +80,7 @@ export default async function HomePage() {
   // An administrator can nominate any published page as the site homepage. When
   // one is set it answers "/" through the same renderer the CMS uses; otherwise
   // the built-in marketing homepage below is served, so the site is never blank.
-  const settings = await getSiteSettings();
+  const [settings, stats] = await Promise.all([getSiteSettings(), getMarketingStats()]);
   if (settings.homepage_page_id) {
     const supabase = await createClient();
     const { data } = await supabase
@@ -266,7 +260,7 @@ export default async function HomePage() {
                     value={stat.value}
                     suffix={stat.suffix}
                     label={stat.label}
-                    decimalPlaces={"decimalPlaces" in stat ? stat.decimalPlaces : 0}
+                    decimalPlaces={stat.decimalPlaces ?? 0}
                     tone={stat.tone}
                     size="display"
                     align="center"

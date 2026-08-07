@@ -5,6 +5,7 @@ import { getGrantsForRole } from "@/lib/supabase/nav-permissions";
 import { getCommandBarMetrics } from "@/lib/supabase/metrics-queries";
 import { getSidebarTelemetry } from "@/lib/supabase/infrastructure-queries";
 import { getNavBadges } from "@/lib/supabase/nav-badges";
+import { listCommandItems } from "@/lib/supabase/command-queries";
 import { AdminCommandBar } from "@/components/layout/AdminCommandBar";
 import { SystemStatusDock } from "@/components/admin/SystemStatusDock";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,6 +34,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // numbers match what this role would actually find on those screens.
   const badges = await getNavBadges();
 
+  // Real projects, clients, people, invoices and pages for the ⌘K palette.
+  const commands = await listCommandItems();
+
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-canvas">
@@ -40,7 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         {/* pt-14 clears the fixed mobile nav bar the sidebar renders below `lg`. */}
         <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">
-          <AdminCommandBar metrics={metrics} />
+          <AdminCommandBar metrics={metrics} commands={commands} />
           {/* Bottom padding keeps the floating status dock off the page content. */}
           <div className="flex-1 pb-44 sm:pb-36">{children}</div>
         </div>

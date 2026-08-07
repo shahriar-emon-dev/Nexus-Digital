@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { clientAccount, portalProjects } from "@/lib/client-portal";
+import { getClientAccount } from "@/lib/supabase/account-queries";
+import { listProjects } from "@/lib/supabase/project-queries";
 import { currentVersion, deliverableById, deliverables } from "@/lib/deliverables";
 import { leadership } from "@/lib/team";
 import { Button } from "@/components/ui/button";
@@ -27,11 +28,12 @@ const stamp = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
-export default function DeliverableReviewPage({ params }: Params) {
+export default async function DeliverableReviewPage({ params }: Params) {
   const deliverable = deliverableById(params.id);
   if (!deliverable) notFound();
 
-  const project = portalProjects.find((p) => p.id === deliverable.projectId);
+  const [projects, account] = await Promise.all([listProjects(), getClientAccount()]);
+  const project = projects.find((p) => p.id === deliverable.projectId);
   const owner = leadership.find((m) => m.id === deliverable.ownerId);
   const latest = currentVersion(deliverable);
 
@@ -72,7 +74,7 @@ export default function DeliverableReviewPage({ params }: Params) {
         )}
       </div>
 
-      <ReviewCanvas deliverable={deliverable} clientName={clientAccount.name} />
+      <ReviewCanvas deliverable={deliverable} clientName={account?.name ?? "Your account"} />
     </div>
   );
 }

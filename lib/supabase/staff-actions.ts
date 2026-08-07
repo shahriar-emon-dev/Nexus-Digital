@@ -165,16 +165,16 @@ export async function addToRoster(form: FormData): Promise<Result> {
   if (!profile) return { error: "That account no longer exists." };
 
   const base = slugify(String(profile.full_name || profile.email)) || "member";
-  let slug = base;
-  for (let n = 2; n < 50; n++) {
-    const { data: taken } = await supabase
-      .from("staff_profiles")
-      .select("id")
-      .eq("slug", slug)
-      .maybeSingle();
-    if (!taken) break;
-    slug = `${base}-${n}`;
-  }
+  // One statement instead of up to 48 sequential round trips. The unique
+  // constraint still backs this; the RPC just stops the happy path from
+  // polling and stops a race surfacing as a raw constraint error.
+  const { data: allocated } = await supabase.rpc("next_available_slug", {
+    p_table: "staff_profiles",
+    p_base: base,
+  });
+  // Falls back to the base when the RPC is unavailable; the unique constraint
+  // is still the thing that actually guarantees uniqueness.
+  const slug = allocated ?? base;
 
   const { error } = await supabase.from("staff_profiles").insert({
     id: profileId,

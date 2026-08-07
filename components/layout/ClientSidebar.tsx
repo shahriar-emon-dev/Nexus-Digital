@@ -22,12 +22,25 @@ import {
   Users,
 } from "lucide-react";
 
-import { clientAccount, inFlightProjects } from "@/lib/client-portal";
-import { billingSummary } from "@/lib/invoices";
-import { totalUnread } from "@/lib/messages";
 import { Sidebar, type NavSection, type SidebarUser } from "./Sidebar";
 
-const sections: NavSection[] = [
+/**
+ * Counts come from the server, not from this module.
+ *
+ * Every badge here used to be read from a static file, so a client saw a
+ * project count, an unread count and an overdue-invoice alert belonging to a
+ * company that did not exist. The layout resolves them per request and passes
+ * them in.
+ */
+export type SidebarCounts = {
+  activeProjects: number;
+  unreadMessages: number;
+  overdueInvoices: number;
+};
+
+export type SidebarAccount = { name: string; tier: string };
+
+const buildSections = (counts: SidebarCounts): NavSection[] => [
   {
     items: [
       { href: "/client", label: "Overview", icon: LayoutDashboard, exact: true },
@@ -36,13 +49,14 @@ const sections: NavSection[] = [
         label: "My Projects",
         icon: FolderKanban,
         // Derived, so the badge cannot drift from the project list.
-        badge: inFlightProjects.length,
+        // Zero renders no badge at all rather than a "0" chip.
+        badge: counts.activeProjects || undefined,
       },
       {
         href: "/client/messages",
         label: "Messages",
         icon: MessagesSquare,
-        badge: totalUnread,
+        badge: counts.unreadMessages || undefined,
         // The communication design shipped its own nav. These are added under
         // Messages rather than replacing the top level, so nothing that was
         // already here moves.
@@ -59,7 +73,7 @@ const sections: NavSection[] = [
         label: "Invoices",
         icon: Receipt,
         // Only shouts when something is actually overdue.
-        alert: billingSummary.overdueCount > 0,
+        alert: counts.overdueInvoices > 0,
         // From the billing design's own nav — added, not substituted.
         children: [
           { href: "/client/invoices", label: "All Invoices", icon: Receipt, exact: true },
@@ -93,18 +107,20 @@ const sections: NavSection[] = [
   },
 ];
 
-const defaultUser: SidebarUser = {
-  name: "Priya Raman",
-  role: clientAccount.name,
-  avatar: undefined,
-};
-
-export function ClientSidebar({ user = defaultUser }: { user?: SidebarUser }) {
+export function ClientSidebar({
+  user,
+  account,
+  counts,
+}: {
+  user: SidebarUser | undefined;
+  account: SidebarAccount | null;
+  counts: SidebarCounts;
+}) {
   return (
     <Sidebar
       sub="Client Portal"
-      sections={sections}
-      user={user}
+      sections={buildSections(counts)}
+      user={user ?? { name: "Signed in", role: "Client" }}
       header={
         // Account health used to live here as a ring. It is now the hero gauge on
         // the overview, and rendering the same score in two places invites the
@@ -115,9 +131,9 @@ export function ClientSidebar({ user = defaultUser }: { user?: SidebarUser }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-[0.8125rem] font-medium text-ink">
-              {clientAccount.name}
+              {account?.name ?? "Your account"}
             </p>
-            <p className="text-[0.6875rem] text-ink-tertiary">{clientAccount.tier}</p>
+            <p className="text-[0.6875rem] text-ink-tertiary">{account?.tier ?? ""}</p>
           </div>
         </div>
       }
