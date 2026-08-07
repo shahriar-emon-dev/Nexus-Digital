@@ -53,6 +53,10 @@ create trigger audit_log_no_direct_insert
 -- decided by the publish pointer and not by status alone.
 
 drop policy if exists service_details_select_public on public.service_details;
+-- The editor policy is new in this migration, so it had no drop when this was
+-- first written and re-running failed with "policy already exists" — which made
+-- the SAFE TO RE-RUN promise at the top of the file false.
+drop policy if exists service_details_select_editor on public.service_details;
 
 create policy service_details_select_public on public.service_details
   for select to anon
