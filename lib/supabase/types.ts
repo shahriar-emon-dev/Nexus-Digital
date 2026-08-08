@@ -3105,6 +3105,56 @@ export type Database = {
         }
         Relationships: []
       }
+      public_site_settings: {
+        Row: {
+          body_start_scripts: string | null
+          default_title: string | null
+          ga4_measurement_id: string | null
+          gtm_container_id: string | null
+          header_scripts: string | null
+          homepage_page_id: string | null
+          id: boolean | null
+          meta_description: string | null
+          og_image_alt: string | null
+          og_image_url: string | null
+          site_name: string | null
+        }
+        Insert: {
+          body_start_scripts?: string | null
+          default_title?: string | null
+          ga4_measurement_id?: string | null
+          gtm_container_id?: string | null
+          header_scripts?: string | null
+          homepage_page_id?: string | null
+          id?: boolean | null
+          meta_description?: string | null
+          og_image_alt?: string | null
+          og_image_url?: string | null
+          site_name?: string | null
+        }
+        Update: {
+          body_start_scripts?: string | null
+          default_title?: string | null
+          ga4_measurement_id?: string | null
+          gtm_container_id?: string | null
+          header_scripts?: string | null
+          homepage_page_id?: string | null
+          id?: boolean | null
+          meta_description?: string | null
+          og_image_alt?: string | null
+          og_image_url?: string | null
+          site_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_settings_homepage_page_id_fkey"
+            columns: ["homepage_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_staff: {
         Row: {
           avatar_url: string | null

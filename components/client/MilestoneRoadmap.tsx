@@ -12,7 +12,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { type MilestoneStatus, type ProjectMilestone } from "@/lib/client-portal";
-import { leadership } from "@/lib/team";
+import type { PersonDirectory } from "@/lib/supabase/staff-queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -55,9 +55,12 @@ const datePrefix: Record<MilestoneStatus, string> = {
  */
 export function MilestoneRoadmap({
   milestones,
+  people = {},
 }: {
   /** Supplied by the server from the database; RLS has already scoped it. */
   milestones: ProjectMilestone[];
+  /** Resolved on the server; see getPeopleDirectory for why. */
+  people?: PersonDirectory;
 }) {
 
   if (milestones.length === 0) {
@@ -92,7 +95,7 @@ export function MilestoneRoadmap({
           >
             <Node status={milestone.status} />
             {milestone.status === "active" ? (
-              <ActiveMilestone milestone={milestone} />
+              <ActiveMilestone milestone={milestone} people={people} />
             ) : (
               <QuietMilestone milestone={milestone} />
             )}
@@ -156,8 +159,14 @@ function QuietMilestone({ milestone }: { milestone: ProjectMilestone }) {
   );
 }
 
-function ActiveMilestone({ milestone }: { milestone: ProjectMilestone }) {
-  const lead = leadership.find((m) => m.id === milestone.leadId);
+function ActiveMilestone({
+  milestone,
+  people,
+}: {
+  milestone: ProjectMilestone;
+  people: PersonDirectory;
+}) {
+  const lead = milestone.leadId ? people[milestone.leadId] : undefined;
   const progress = milestone.progress ?? 0;
 
   return (
@@ -202,7 +211,7 @@ function ActiveMilestone({ milestone }: { milestone: ProjectMilestone }) {
         </Fact>
         {lead && (
           <Fact icon={Users} title="Lead assignee">
-            {lead.name} — {lead.role}
+            {lead.name}
           </Fact>
         )}
       </div>

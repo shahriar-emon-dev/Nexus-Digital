@@ -19,7 +19,7 @@ import {
   type PortalProject,
   type ProjectStatus,
 } from "@/lib/client-portal";
-import { leadership } from "@/lib/team";
+import type { PersonDirectory } from "@/lib/supabase/staff-queries";
 import { AvatarGroup } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -62,10 +62,13 @@ const shortDate = new Intl.DateTimeFormat("en-US", {
 export function ProjectsGrid({
   heading,
   projects,
+  people,
 }: {
   heading: React.ReactNode;
   /** Supplied by the server from the database; RLS has already scoped it. */
   projects: PortalProject[];
+  /** Resolved on the server; see getPeopleDirectory for why. */
+  people: PersonDirectory;
 }) {
   const [filter, setFilter] = React.useState<ProjectStatus | "All Projects">("All Projects");
 
@@ -124,7 +127,7 @@ export function ProjectsGrid({
           const t = tone[project.tone];
           const budgetPct = Math.round((project.budgetSpent / project.budgetTotal) * 100);
           const team = project.teamIds
-            .map((id) => leadership.find((m) => m.id === id))
+            .map((id) => people[id])
             .filter((m): m is NonNullable<typeof m> => Boolean(m))
             .map((m) => ({ name: m.name }));
 

@@ -11,7 +11,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { boardColumns, type BoardColumn, type BoardTask } from "@/lib/client-portal";
-import { leadership } from "@/lib/team";
+import type { PersonDirectory } from "@/lib/supabase/staff-queries";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,6 @@ const dotTone: Record<BoardColumn["tone"], string> = {
   orchid: "bg-chart-3",
 };
 
-const memberById = (id: string) => leadership.find((m) => m.id === id);
 
 /**
  * The client's read-only view of the delivery board.
@@ -51,11 +50,14 @@ const memberById = (id: string) => leadership.find((m) => m.id === id);
 export function ReviewBoard({
   projectId,
   tasks,
+  people,
   deliverableIdByTask = {},
 }: {
   projectId: string;
   /** Supplied by the server from the database; RLS has already scoped it. */
   tasks: BoardTask[];
+  /** Resolved on the server; see getPeopleDirectory for why. */
+  people: PersonDirectory;
   /**
    * task id → deliverable id, resolved on the server.
    *
@@ -140,6 +142,7 @@ export function ReviewBoard({
                   <li key={task.id}>
                     <TaskCard
                       task={task}
+                      people={people}
                       deliverableId={deliverableIdByTask[task.id]}
                       done={column.id === "done"}
                       signedOff={signedOff.includes(task.id)}
@@ -158,6 +161,7 @@ export function ReviewBoard({
 
       <SignOffDialog
         task={reviewing}
+        people={people}
         open={open}
         onOpenChange={setOpen}
         onSignOff={(id) => {
@@ -171,18 +175,20 @@ export function ReviewBoard({
 
 function TaskCard({
   task,
+  people,
   deliverableId,
   done,
   signedOff,
   onReview,
 }: {
   task: BoardTask;
+  people: PersonDirectory;
   deliverableId?: string;
   done: boolean;
   signedOff: boolean;
   onReview: () => void;
 }) {
-  const assignee = memberById(task.assigneeId);
+  const assignee = people[task.assigneeId];
   const needsAction = Boolean(task.awaitingApproval) && !signedOff;
 
   return (
@@ -222,7 +228,7 @@ function TaskCard({
           {task.discipline}
         </Badge>
         {assignee && (
-          <Avatar size="sm" title={`${assignee.name} — ${assignee.role}`}>
+          <Avatar size="sm" title={assignee.name}>
             <AvatarFallback aria-hidden>{initials(assignee.name)}</AvatarFallback>
             {/* Initials alone are read out letter by letter, so the name is
                 carried in text for assistive tech and in `title` for pointers. */}
@@ -279,16 +285,18 @@ function TaskCard({
  */
 function SignOffDialog({
   task,
+  people,
   open,
   onOpenChange,
   onSignOff,
 }: {
   task: BoardTask | null;
+  people: PersonDirectory;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSignOff: (id: string) => void;
 }) {
-  const assignee = task ? memberById(task.assigneeId) : undefined;
+  const assignee = task ? people[task.assigneeId] : undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -299,7 +307,7 @@ function SignOffDialog({
               <DialogTitle>{task.title}</DialogTitle>
               <DialogDescription>
                 {assignee
-                  ? `Submitted by ${assignee.name}, ${assignee.role}.`
+                  ? `Submitted by ${assignee.name}.`
                   : "Awaiting your approval."}
               </DialogDescription>
             </DialogHeader>

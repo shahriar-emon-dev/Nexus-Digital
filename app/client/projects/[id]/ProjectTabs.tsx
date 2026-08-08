@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MilestoneRoadmap } from "@/components/client/MilestoneRoadmap";
 import type { BoardTask, ProjectMilestone } from "@/lib/client-portal";
+import type { PersonDirectory } from "@/lib/supabase/staff-queries";
 import { ReviewBoard } from "@/components/client/ReviewBoard";
 
 /**
@@ -21,11 +22,14 @@ export function ProjectTabs({
   projectId,
   milestones,
   tasks,
+  people,
   deliverableIdByTask,
 }: {
   projectId: string;
   milestones: ProjectMilestone[];
   tasks: BoardTask[];
+  /** Resolved on the server; see getPeopleDirectory for why. */
+  people: PersonDirectory;
   /** Resolved on the server so the review link only appears where one exists. */
   deliverableIdByTask: Record<string, string>;
 }) {
@@ -51,13 +55,14 @@ export function ProjectTabs({
       </TabsList>
 
       <TabsContent value="roadmap" className="mt-10">
-        <MilestoneRoadmap milestones={milestones} />
+        <MilestoneRoadmap milestones={milestones} people={people} />
       </TabsContent>
 
       <TabsContent value="board" className="mt-10">
         <ReviewBoard
           projectId={projectId}
           tasks={tasks}
+          people={people}
           deliverableIdByTask={deliverableIdByTask}
         />
       </TabsContent>

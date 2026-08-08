@@ -11,6 +11,7 @@ import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ActionFab } from "@/components/client/ActionFab";
 import { ProjectPulse } from "@/components/client/ProjectPulse";
 import { listDeliverables } from "@/lib/supabase/deliverable-actions";
+import { getPeopleDirectory } from "@/lib/supabase/staff-queries";
 import { ProjectTabs } from "./ProjectTabs";
 
 type Params = { params: { id: string } };
@@ -37,10 +38,11 @@ export default async function ClientProjectDetailPage({ params }: Params) {
 
   // The header quotes the final milestone's date when there is one, so it can
   // never disagree with the bottom of the roadmap.
-  const [milestones, tasks, deliverables] = await Promise.all([
+  const [milestones, tasks, deliverables, people] = await Promise.all([
     listMilestones(params.id),
     listTasks(params.id),
     listDeliverables(),
+    getPeopleDirectory(),
   ]);
 
   // Only deliverables that are actually attached to a task on this board, so a
@@ -127,12 +129,13 @@ export default async function ClientProjectDetailPage({ params }: Params) {
               projectId={project.id}
               milestones={milestones}
               tasks={tasks}
+              people={people}
               deliverableIdByTask={deliverableIdByTask}
             />
           </div>
 
           <aside aria-label="Project pulse">
-            <ProjectPulse project={project} />
+            <ProjectPulse project={project} people={people} />
           </aside>
         </div>
       </div>

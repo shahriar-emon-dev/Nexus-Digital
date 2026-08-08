@@ -43,3 +43,32 @@ export async function listPublicStaff(): Promise<TeamMember[]> {
       portrait: r.avatar_url ?? "",
     }));
 }
+
+/**
+ * Everyone who can appear as a project lead, task assignee or attendee,
+ * keyed by profile id.
+ *
+ * The portal components used to resolve people against the static `leadership`
+ * array in lib/team.ts. Its ids are slugs ("alex-vance") while every real
+ * lead_id and assignee_id is a UUID, so after the data moved to Postgres every
+ * lookup missed. The guards meant nothing wrong was shown — names and avatars
+ * simply stopped rendering, silently, with no error anywhere.
+ *
+ * Returned as a plain record because the consumers are client components: a Map
+ * does not survive the server/client boundary, and passing the whole roster to
+ * each one would ship it several times over.
+ */
+export type PersonDirectory = Record<string, { name: string; avatarUrl: string | null }>;
+
+export async function getPeopleDirectory(): Promise<PersonDirectory> {
+  const supabase = await createClient();
+
+  // public_staff, not profiles: the About page reads with the anon key and
+  // profiles has no anon policy, so joining it directly returns null names.
+  const { data } = await supabase.from("public_staff").select("id, full_name, avatar_url");
+
+  return Object.fromEntries(
+    ((data ?? []) as unknown as { id: string; full_name: string; avatar_url: string | null }[])
+      .map((p) => [p.id, { name: p.full_name, avatarUrl: p.avatar_url }])
+  );
+}

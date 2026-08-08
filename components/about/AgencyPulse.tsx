@@ -1,64 +1,68 @@
-"use client";
-
-import { Activity, Star } from "lucide-react";
+import { Activity, Building2, Layers, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { agencyPulse } from "@/lib/agency";
+import type { MarketingStat } from "@/lib/supabase/marketing-stats";
 import { CountUp } from "@/components/marketing/CountUp";
 
-const icons = { commits: Activity, csat: Star } as const;
-
 /**
- * Live telemetry strip, overlapping the hero.
+ * The About page's headline figures.
  *
- * The figures count up on entry — the source shipped an IntersectionObserver
- * that added `opacity-100` to elements it had never made transparent, so it
- * animated nothing. `CountUp` keeps the final value in the accessible name, so
- * a screen reader gets the number rather than a spinning counter.
+ * These were three literals presented as live telemetry — "24 Active Global
+ * Builds" with a pulsing indicator, "1420 Commits This Month", "4.9 Average
+ * CSAT". Nothing in this system records commits or satisfaction scores, and the
+ * pulsing dot implied a feed that did not exist.
+ *
+ * They now come from the same derivation the homepage uses, so the two pages
+ * cannot quote different numbers. A stat with nothing behind it is omitted
+ * rather than shown as zero, and if none survive the whole band is skipped —
+ * which is why this returns null rather than rendering an empty shell.
  */
-export function AgencyPulse() {
+
+const icons = {
+  brand: Layers,
+  ion: Building2,
+  orchid: Activity,
+  ink: Star,
+} as const;
+
+const tones = {
+  brand: "text-brand",
+  ion: "text-ion",
+  orchid: "text-chart-3",
+  ink: "text-ink",
+} as const;
+
+export function AgencyPulse({ stats }: { stats: MarketingStat[] }) {
+  if (stats.length === 0) return null;
+
   return (
     <section className="relative z-20 mx-auto -mt-20 max-w-7xl px-4 md:px-10">
       <div className="glass rounded-2xl p-1">
-        <dl className="grid grid-cols-1 gap-8 divide-y divide-line rounded-xl bg-canvas p-8 md:grid-cols-3 md:divide-x md:divide-y-0">
-          {agencyPulse.map((stat, i) => {
-            const Icon = icons[stat.id as keyof typeof icons];
+        <dl
+          className={cn(
+            "grid grid-cols-1 gap-8 divide-y divide-line rounded-xl bg-canvas p-8 md:divide-x md:divide-y-0",
+            stats.length === 2 && "md:grid-cols-2",
+            stats.length >= 3 && "md:grid-cols-3"
+          )}
+        >
+          {stats.slice(0, 3).map((stat) => {
+            const Icon = icons[stat.tone];
             return (
-              <div
-                key={stat.id}
-                className={cn(
-                  "flex flex-col items-center pt-8 md:items-start md:pt-0",
-                  i === 0 && "pt-0",
-                  i > 0 && "md:pl-12"
-                )}
-              >
-                <p className="mb-2 flex items-center gap-2">
-                  {stat.live ? (
-                    <span className="relative flex size-2" aria-hidden>
-                      <span className="absolute inset-0 animate-ping rounded-full bg-danger opacity-70 motion-reduce:animate-none" />
-                      <span className="relative size-2 rounded-full bg-danger" />
-                    </span>
-                  ) : (
-                    Icon && <Icon className="size-5 text-ion" aria-hidden />
-                  )}
-                  <span
-                    className={cn(
-                      "text-[0.8125rem] font-semibold tracking-wide uppercase",
-                      stat.live ? "text-danger" : "text-ink-tertiary"
-                    )}
-                  >
-                    {stat.eyebrow}
-                  </span>
-                </p>
-
-                <CountUp
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  decimalPlaces={stat.decimalPlaces ?? 0}
-                  label={stat.label}
-                  tone={stat.tone}
-                  size="stat"
-                />
+              <div key={stat.label} className="flex flex-col gap-2 pt-8 first:pt-0 md:pt-0">
+                <dt className="flex items-center gap-2 text-[0.625rem] font-bold tracking-widest text-ink-tertiary uppercase">
+                  <Icon className={cn("size-4", tones[stat.tone])} aria-hidden />
+                  Measured
+                </dt>
+                <dd className="flex flex-col gap-1">
+                  <CountUp
+                    value={stat.value}
+                    suffix={stat.suffix}
+                    label={stat.label}
+                    decimalPlaces={stat.decimalPlaces ?? 0}
+                    tone={stat.tone}
+                    size="display"
+                  />
+                </dd>
               </div>
             );
           })}

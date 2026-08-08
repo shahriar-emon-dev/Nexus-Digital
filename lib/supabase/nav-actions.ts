@@ -89,11 +89,20 @@ export async function getSiteSettings(): Promise<{
   site_name: string;
 }> {
   const supabase = await createClient();
+  // Reads the view, not the table. This is called from the public homepage with
+  // the anon key, and site_settings itself became authenticated-only in 0060 so
+  // that `updated_by` — a staff UUID — stops leaking. The view exposes the same
+  // two columns this needs and none of the identifying ones.
   const { data } = await supabase
-    .from("site_settings")
+    .from("public_site_settings")
     .select("homepage_page_id, site_name")
     .maybeSingle();
-  return data ?? { homepage_page_id: null, site_name: "Nexus" };
+  // A view loses NOT NULL, so site_name comes back nullable even though the
+  // underlying column is not — coalesced rather than cast away.
+  return {
+    homepage_page_id: data?.homepage_page_id ?? null,
+    site_name: data?.site_name ?? "Nexus",
+  };
 }
 
 /* ------------------------------------------------------------ writing ---- */

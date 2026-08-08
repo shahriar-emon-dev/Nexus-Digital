@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { getMyProfile } from "@/lib/supabase/profile-actions";
 import { listProjects, portfolioStatsFrom } from "@/lib/supabase/project-queries";
+import { getPeopleDirectory } from "@/lib/supabase/staff-queries";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ProjectsGrid } from "./ProjectsGrid";
 
@@ -17,7 +18,11 @@ const money = new Intl.NumberFormat("en-US", {
 export default async function ClientProjectsPage() {
   // RLS scopes this to the caller's organisation; no filter is passed, so it
   // cannot be forgotten.
-  const [projects, profile] = await Promise.all([listProjects(), getMyProfile()]);
+  const [projects, profile, people] = await Promise.all([
+    listProjects(),
+    getMyProfile(),
+    getPeopleDirectory(),
+  ]);
   const portfolioStats = portfolioStatsFrom(projects);
   const accountName = profile?.organizations?.name ?? "Your";
 
@@ -31,6 +36,7 @@ export default async function ClientProjectsPage() {
       <div className="flex flex-1 flex-col px-5 py-10 lg:px-10">
         <ProjectsGrid
           projects={projects}
+          people={people}
           heading={
             <div>
               <h2 className="font-heading text-[2.5rem] leading-[1.2] font-bold tracking-tight text-ink md:text-[3rem]">

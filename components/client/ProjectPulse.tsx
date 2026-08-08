@@ -3,7 +3,7 @@ import { MessagesSquare } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { scheduleElapsed, type PortalProject } from "@/lib/client-portal";
-import { leadership } from "@/lib/team";
+import type { PersonDirectory } from "@/lib/supabase/staff-queries";
 import { AvatarGroup } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,12 +22,19 @@ const money = new Intl.NumberFormat("en-US", {
  * sticky grid column here instead, so it scrolls with the page and never sits
  * on top of the board.
  */
-export function ProjectPulse({ project }: { project: PortalProject }) {
+export function ProjectPulse({
+  project,
+  people,
+}: {
+  project: PortalProject;
+  /** Resolved on the server; see getPeopleDirectory for why. */
+  people: PersonDirectory;
+}) {
   const budgetPct = Math.round((project.budgetSpent / project.budgetTotal) * 100);
   const schedule = scheduleElapsed(project);
 
   const team = project.teamIds
-    .map((id) => leadership.find((m) => m.id === id))
+    .map((id) => people[id])
     .filter((m): m is NonNullable<typeof m> => Boolean(m))
     .map((m) => ({ name: m.name }));
 

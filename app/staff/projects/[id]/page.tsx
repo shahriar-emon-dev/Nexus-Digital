@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { getProjectBySlug, listMilestones, listTasks } from "@/lib/supabase/project-queries";
 import { listProjectFiles } from "@/lib/supabase/file-actions";
+import { getPeopleDirectory } from "@/lib/supabase/staff-queries";
 import { projectStatusTone } from "@/lib/client-portal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,10 +32,11 @@ export default async function StaffProjectDetailPage({ params }: Params) {
   const project = await getProjectBySlug(params.id);
   if (!project) notFound();
 
-  const [milestones, tasks, files] = await Promise.all([
+  const [milestones, tasks, files, people] = await Promise.all([
     listMilestones(params.id),
     listTasks(params.id),
     listProjectFiles(),
+    getPeopleDirectory(),
   ]);
 
   const money = new Intl.NumberFormat("en-US", {
@@ -117,7 +119,7 @@ export default async function StaffProjectDetailPage({ params }: Params) {
           </dl>
         </Card>
 
-        {milestones.length > 0 && <MilestoneRoadmap milestones={milestones} />}
+        {milestones.length > 0 && <MilestoneRoadmap milestones={milestones} people={people} />}
 
         <Card variant="glass" className="gap-3 rounded-2xl p-6">
           <h2 className="font-heading text-xl font-semibold text-ink">Files</h2>
