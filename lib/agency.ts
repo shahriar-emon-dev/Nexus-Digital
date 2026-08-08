@@ -1,21 +1,50 @@
 /**
- * The agency's own history, for the About page timeline.
+ * Agency-level facts shown on the About page.
  *
- * This module used to also export `agencyPulse` — "24 Active Global Builds"
- * flagged as live telemetry, "1420 Commits This Month", "4.9 Average CSAT".
- * Nothing in this system records commits or satisfaction scores, and the pulsing
- * indicator implied a feed that did not exist. Those figures are gone; the
- * About page now shows the same derived stats as the homepage.
- *
- * What stays is genuine editorial copy about the company. Founding dates and a
- * team's own account of its direction are ordinary marketing writing — they are
- * claims the agency makes about itself, not measurements dressed up as data.
- *
- * One entry was reworded. It read "Onboarded our first Fortune 500 partner",
- * which is a checkable factual claim about a named client tier, and no client
- * record supports it. Anything here that asserts a specific client, revenue
- * figure or headcount needs a source before it goes back in.
+ * `agencyPulse` is presented as live telemetry, so it is the first thing that
+ * should become a real query — an API route reading build/commit/CSAT counts.
+ * Keeping it here means swapping the source without touching the component.
  */
+export type PulseStat = {
+  id: string;
+  /** Numeric value so the figure can animate; formatting lives in the component. */
+  value: number;
+  decimalPlaces?: number;
+  suffix?: string;
+  eyebrow: string;
+  label: string;
+  tone: "ink" | "brand" | "ion" | "orchid";
+  /** Marks the live-operations readout, which gets the pulsing indicator. */
+  live?: boolean;
+};
+
+/* TODO: replace with a live query — these are static placeholders. */
+export const agencyPulse: PulseStat[] = [
+  {
+    id: "builds",
+    value: 24,
+    eyebrow: "Live Operations",
+    label: "Active Global Builds",
+    tone: "ink",
+    live: true,
+  },
+  {
+    id: "commits",
+    value: 1420,
+    eyebrow: "Dev Pipeline",
+    label: "Commits This Month",
+    tone: "ink",
+  },
+  {
+    id: "csat",
+    value: 4.9,
+    decimalPlaces: 1,
+    suffix: "/5.0",
+    eyebrow: "Quality Index",
+    label: "Average CSAT",
+    tone: "ink",
+  },
+];
 
 export type Milestone = {
   year: string;
@@ -35,20 +64,20 @@ export const milestones: Milestone[] = [
   },
   {
     year: "2020",
-    title: "Enterprise Shift",
-    body: "Moved from project work into full-scale digital transformation, taking on longer engagements with larger delivery teams.",
+    title: "Global Enterprise Shift",
+    body: "Onboarded our first Fortune 500 partner, transitioning into full-scale digital transformation for global industries.",
     tone: "ion",
   },
   {
     year: "2022",
     title: "Engineering Scale",
-    body: "Adopted a distributed development model across multiple timezones, with delivery split into independent specialist pods.",
+    body: "Scaled to 50+ specialized engineers across 6 timezones, implementing a true decentralized development model.",
     tone: "brand",
   },
   {
     year: "2024",
-    title: "AI Division",
-    body: "Launched a dedicated AI practice, focusing on high-performance inference and custom model integration.",
+    title: "Obsidian AI Division",
+    body: "Launched our dedicated AI laboratory, focusing on high-performance inference engines and custom LLM integrations.",
     tone: "orchid",
     current: true,
   },

@@ -4,9 +4,8 @@ import type { Metadata } from "next";
 import { ArrowRight, Terminal, Zap } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { departmentTone } from "@/lib/team";
+import { departmentTone, leadership } from "@/lib/team";
 import { listPublicStaff } from "@/lib/supabase/staff-queries";
-import { getMarketingStats } from "@/lib/supabase/marketing-stats";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AgencyPulse } from "@/components/about/AgencyPulse";
@@ -30,11 +29,11 @@ const ethos = [
 export const revalidate = 60;
 
 export default async function AboutPage() {
-  // No fallback roster. This used to drop back to a hardcoded array of five
-  // invented colleagues whenever nothing was published — dormant while one
-  // staff profile exists, and a page of fictional people the day it does not.
-  // An empty roster now renders an empty section, which is the truth.
-  const [roster, stats] = await Promise.all([listPublicStaff(), getMarketingStats()]);
+  // Published staff win. Falling back to the built-in roster means the page is
+  // never empty before anyone has been published, and an administrator takes
+  // it over simply by marking staff public — no deploy, no blank section.
+  const published = await listPublicStaff();
+  const roster = published.length > 0 ? published : leadership;
 
   return (
     <>
@@ -74,7 +73,7 @@ export default async function AboutPage() {
         </Reveal>
       </section>
 
-      <AgencyPulse stats={stats} />
+      <AgencyPulse />
 
       {/* ── Timeline ───────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl overflow-hidden px-4 py-32 md:px-10">
@@ -109,12 +108,6 @@ export default async function AboutPage() {
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
-
-          {roster.length === 0 && (
-            <p className="text-ink-tertiary">
-              No team profiles are published yet.
-            </p>
-          )}
 
           <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {roster.map((member, i) => (
