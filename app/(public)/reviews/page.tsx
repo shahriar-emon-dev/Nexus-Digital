@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { listApprovedReviews } from "@/lib/supabase/review-actions";
+import { JsonLd, aggregateRatingLd } from "@/components/seo/JsonLd";
 import { cn } from "@/lib/utils";
 import { ReviewForm } from "./ReviewForm";
 
@@ -43,8 +44,17 @@ export default async function ReviewsPage() {
       ? (reviews.reduce((n, r) => n + r.rating, 0) / reviews.length).toFixed(1)
       : null;
 
+  // Returns null below one review. An AggregateRating with reviewCount 0 is
+  // invalid structured data and a misrepresentation — exactly the kind of claim
+  // that earns a manual action.
+  const ratingLd = aggregateRatingLd({
+    ratings: reviews.map((r) => r.rating),
+    name: "Nexus Digital Agency",
+  });
+
   return (
     <div className="mx-auto w-full max-w-5xl px-5 py-20 lg:px-8">
+      {ratingLd && <JsonLd data={ratingLd} />}
       <header className="max-w-2xl">
         <h1 className="font-heading text-[clamp(2.5rem,6vw,3.5rem)] leading-[1.1] font-bold tracking-tight text-ink">
           Client reviews

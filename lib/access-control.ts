@@ -113,19 +113,54 @@ export function isValidIpRule(value: string): boolean {
  * the role's grant on that module in the database.
  *
  * Longest prefix wins, so `/admin/invoices` beats `/admin`.
+ *
+ * COVERAGE. This used to list eleven prefixes against a tree of thirty-six
+ * admin routes, and `grantClearsRoute` returns true for anything unmapped — so
+ * /admin/leads, /admin/projects, /admin/reviews, /admin/database and the
+ * analytics screens were reachable by any ADMIN-portal account regardless of
+ * role. RLS still refused the data, but relying on that alone makes the
+ * database the only line of defence.
+ *
+ * Every admin route that reads governed data now has a rule. Deliberately still
+ * unmapped: `/admin` itself (the portal landing page, which must stay reachable
+ * or the redirect target loops), `/admin/notifications` and `/admin/docs`
+ * (per-user and static respectively), and `/admin/settings` root, whose
+ * children carry their own stricter rules.
  */
 export const routeModuleMap: { prefix: string; moduleId: string; minimum: AccessLevel }[] = [
+  /* security-policies */
   { prefix: "/admin/access-control", moduleId: "security-policies", minimum: "audit" },
   { prefix: "/admin/settings/security", moduleId: "security-policies", minimum: "audit" },
   { prefix: "/admin/audit-logs", moduleId: "security-policies", minimum: "audit" },
+  { prefix: "/admin/logs", moduleId: "security-policies", minimum: "audit" },
   { prefix: "/admin/keys", moduleId: "security-policies", minimum: "admin" },
   { prefix: "/admin/settings/users", moduleId: "security-policies", minimum: "admin" },
+  { prefix: "/admin/settings/email", moduleId: "security-policies", minimum: "admin" },
+  { prefix: "/admin/database", moduleId: "security-policies", minimum: "audit" },
+  { prefix: "/admin/nodes", moduleId: "security-policies", minimum: "audit" },
+  { prefix: "/admin/traffic", moduleId: "security-policies", minimum: "audit" },
+
+  /* financial-systems */
   { prefix: "/admin/invoices", moduleId: "financial-systems", minimum: "view" },
+
+  /* crm-database */
   { prefix: "/admin/clients", moduleId: "crm-database", minimum: "view" },
+  { prefix: "/admin/leads", moduleId: "crm-database", minimum: "view" },
+  { prefix: "/admin/projects", moduleId: "crm-database", minimum: "view" },
+  { prefix: "/admin/meetings", moduleId: "crm-database", minimum: "view" },
+  { prefix: "/admin/support", moduleId: "crm-database", minimum: "view" },
+
+  /* staff-hr-records */
   { prefix: "/admin/staff", moduleId: "staff-hr-records", minimum: "view" },
+
+  /* service-management */
   { prefix: "/admin/services", moduleId: "service-management", minimum: "view" },
+
+  /* content-publishing */
   { prefix: "/admin/content", moduleId: "content-publishing", minimum: "view" },
   { prefix: "/admin/media", moduleId: "content-publishing", minimum: "view" },
+  { prefix: "/admin/reviews", moduleId: "content-publishing", minimum: "view" },
+  { prefix: "/admin/analytics", moduleId: "content-publishing", minimum: "view" },
 ];
 
 /** The rule governing a path, or null when the route is ungated. */

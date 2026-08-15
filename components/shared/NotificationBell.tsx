@@ -12,6 +12,12 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/lib/supabase/notification-actions";
+import { useRealtime } from "@/lib/supabase/use-realtime";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,14 +42,81 @@ const kindMeta: Record<NotificationKind, { Icon: LucideIcon; cls: string }> = {
   member: { Icon: UserPlus, cls: "bg-ion-subtle text-ion-subtle-fg" },
 };
 
+/** Maps the database `kind` text onto the four icon buckets this bell knows. */
+function toKind(kind: string): NotificationKind {
+  const k = kind.toLowerCase();
+  if (k.includes("message") || k.includes("reply") || k.includes("ticket")) return "message";
+  if (k.includes("invoice") || k.includes("payment") || k.includes("billing")) return "invoice";
+  if (k.includes("member") || k.includes("assign") || k.includes("staff")) return "member";
+  return "project";
+}
+
+const relative = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diff / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
+    new Date(iso)
+  );
+};
+
+/**
+ * The notification bell, which now actually shows notifications.
+ *
+ * It previously took a `notifications` prop that defaulted to an empty array —
+ * and `DashboardHeader`, which renders it on all 31 portal screens, defaulted
+ * that prop to a shared empty constant and never received one from any caller.
+ * `AdminCommandBar` rendered `<NotificationBell />` with no props at all. So
+ * every bell in the product was permanently empty, while four database triggers
+ * dutifully wrote rows into `public.notifications` that nobody could see.
+ *
+ * Threading a prop down through 31 call sites would have been 31 chances to
+ * miss one. Instead the component loads its own inbox and subscribes to its own
+ * table, so it is correct everywhere it is mounted and cannot silently regress
+ * to empty. `notifications` is still accepted as an override for tests and
+ * stories, and suppresses the fetch when supplied.
+ */
 export function NotificationBell({
-  notifications: initial = [],
+  notifications: initial,
   className,
 }: {
   notifications?: Notification[];
   className?: string;
 }) {
-  const [items, setItems] = React.useState(initial);
+  const [items, setItems] = React.useState<Notification[]>(initial ?? []);
+  const controlled = initial !== undefined;
+
+  const load = React.useCallback(async () => {
+    if (controlled) return;
+    const rows = await listNotifications(20);
+    setItems(
+      rows.map((n) => ({
+        id: n.id,
+        kind: toKind(n.kind),
+        title: n.title,
+        body: n.body ?? undefined,
+        time: relative(n.created_at),
+        read: n.read_at !== null,
+        href: n.href ?? undefined,
+      }))
+    );
+  }, [controlled]);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  // The table is in the realtime publication and the triggers write to it, so
+  // a new notification arrives without the recipient navigating anywhere.
+  useRealtime("shared:notifications", [{ table: "notifications" }], () => {
+    void load();
+  });
+
   const unread = items.filter((n) => !n.read).length;
 
   return (
@@ -82,7 +155,12 @@ export function NotificationBell({
             <Button
               variant="ghost"
               size="xs"
-              onClick={() => setItems((prev) => prev.map((n) => ({ ...n, read: true })))}
+              onClick={() => {
+                // Optimistic, then persisted. Marking read only in local state
+                // meant the badge came straight back on the next navigation.
+                setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+                void markAllNotificationsRead();
+              }}
             >
               <CheckCheck />
               Mark all read
@@ -107,11 +185,12 @@ export function NotificationBell({
                   <li key={n.id}>
                     <a
                       href={n.href ?? "#"}
-                      onClick={() =>
+                      onClick={() => {
                         setItems((prev) =>
                           prev.map((x) => (x.id === n.id ? { ...x, read: true } : x))
-                        )
-                      }
+                        );
+                        if (!n.read) void markNotificationRead(n.id);
+                      }}
                       className={cn(
                         "flex gap-3 px-4 py-3 transition-colors duration-(--duration-instant)",
                         "hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none",

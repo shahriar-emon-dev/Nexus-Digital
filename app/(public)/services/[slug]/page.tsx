@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { RoiForecaster } from "@/components/services/RoiForecaster";
 import { StickyCtaBar } from "@/components/services/StickyCtaBar";
 import { getPublicService } from "@/lib/supabase/service-actions";
+import { JsonLd, breadcrumbLd, serviceLd } from "@/components/seo/JsonLd";
 
 /**
  * A service detail page is a published CMS page and nothing else.
@@ -50,6 +51,23 @@ export default async function ServiceDetailPage({ params }: Props) {
 
   return (
     <>
+      {/* Spec §15.3. `offers` is omitted when no price is set — a zero-price
+          Offer in structured data is a claim that the work is free. */}
+      <JsonLd
+        data={serviceLd({
+          name: service.title,
+          slug: params.slug,
+          description: service.summary,
+          priceFrom: service.priceFrom,
+          currency: service.currency,
+        })}
+      />
+      <JsonLd
+        data={breadcrumbLd([
+          { name: "Services", url: "/services" },
+          { name: service.title, url: `/services/${params.slug}` },
+        ])}
+      />
       <main>
         <BlockRenderer blocks={service.blocks} />
 

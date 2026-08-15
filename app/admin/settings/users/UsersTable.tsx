@@ -17,6 +17,7 @@ import { useRealtime } from "@/lib/supabase/use-realtime";
 import {
   assignPortalAndRole,
   setProfileActive,
+  setProfileOrganization,
   type ProfileWithOrg,
 } from "@/lib/supabase/profile-actions";
 import type { Portal, Role } from "@/lib/supabase/types";
@@ -33,10 +34,12 @@ const portalTone: Record<Portal, "brand" | "ion" | "default"> = {
 export function UsersTable({
   initialProfiles,
   roles,
+  organizations,
   currentUserId,
 }: {
   initialProfiles: ProfileWithOrg[];
   roles: Role[];
+  organizations: { id: string; name: string }[];
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -100,6 +103,57 @@ export function UsersTable({
       return;
     }
     toast.add({ title: `${user.full_name || user.email} updated`, type: "success" });
+  }
+
+  /**
+   * Attaches a client login to the customer account it belongs to.
+   *
+   * This is the write that makes the client portal function at all. Every
+   * client-facing RLS policy resolves through `private.current_org_id()`, which
+   * reads `profiles.organization_id` — and nothing in the codebase ever wrote
+   * that column, so a client could be created, given the CLIENT portal, sign in
+   * successfully and still see an empty portal forever.
+   */
+  async function onAssignOrganization(user: ProfileWithOrg, organizationId: string | null) {
+    setPending(user.id);
+    setError(null);
+
+    const previous = profiles;
+    const org = organizationId
+      ? organizations.find((o) => o.id === organizationId) ?? null
+      : null;
+
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === user.id
+          ? {
+              ...p,
+              organization_id: organizationId,
+              portal: organizationId ? ("CLIENT" as Portal) : p.portal,
+              organizations: org
+                ? { id: org.id, name: org.name, slug: "", industry: null, tier: "" }
+                : null,
+            }
+          : p
+      )
+    );
+
+    const result = await setProfileOrganization(user.id, organizationId);
+    setPending(null);
+
+    if ("error" in result) {
+      setProfiles(previous);
+      setError(result.error);
+      return;
+    }
+
+    toast.add({
+      title: organizationId
+        ? `${user.full_name || user.email} linked to ${org?.name ?? "the account"}`
+        : `${user.full_name || user.email} unlinked`,
+      type: "success",
+    });
+    router.refresh();
   }
 
   async function onToggleActive(user: ProfileWithOrg) {
@@ -240,8 +294,32 @@ export function UsersTable({
                           </span>
                         </th>
 
-                        <td className="px-3 py-3 text-sm text-ink-secondary">
-                          {p.organizations?.name ?? <span className="text-ink-tertiary">—</span>}
+                        <td className="px-3 py-3">
+                          {/* Was a read-only label. An administrator could see
+                              that a client had no organisation and had no way to
+                              give them one. */}
+                          <Select
+                            value={p.organization_id ?? "none"}
+                            onValueChange={(v) =>
+                              onAssignOrganization(p, v === "none" ? null : (v as string))
+                            }
+                          >
+                            <SelectTrigger
+                              size="sm"
+                              className="w-44"
+                              aria-label={`Client account for ${p.email}`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No account</SelectItem>
+                              {organizations.map((o) => (
+                                <SelectItem key={o.id} value={o.id}>
+                                  {o.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
 
                         <td className="px-3 py-3">

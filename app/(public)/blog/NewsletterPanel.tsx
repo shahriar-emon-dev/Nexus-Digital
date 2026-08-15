@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check } from "lucide-react";
 
+import { subscribeToNewsletter } from "@/lib/supabase/newsletter-actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,11 +19,19 @@ import { Input } from "@/components/ui/input";
 export function NewsletterPanel() {
   const [email, setEmail] = React.useState("");
   const [state, setState] = React.useState<"idle" | "invalid" | "done">("idle");
+  const [pending, startTransition] = React.useTransition();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: POST to a real list. Nothing leaves the browser today.
-    setState(/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) ? "done" : "invalid");
+    // The address is recorded now. This panel used to validate the format,
+    // show the success state and throw the address away — while the identical
+    // form in the footer had been writing to `newsletter_subscribers` through
+    // subscribe_newsletter() the whole time. Only this copy was missed, so
+    // every signup taken from the blog page was silently lost.
+    startTransition(async () => {
+      const result = await subscribeToNewsletter(email, "blog");
+      setState("error" in result ? "invalid" : "done");
+    });
   };
 
   return (
@@ -86,8 +95,8 @@ export function NewsletterPanel() {
                   </p>
                 )}
               </div>
-              <Button type="submit" size="xl" className="rounded-full px-10">
-                Subscribe
+              <Button type="submit" size="xl" className="rounded-full px-10" disabled={pending}>
+                {pending ? "Subscribing…" : "Subscribe"}
               </Button>
             </form>
           )}

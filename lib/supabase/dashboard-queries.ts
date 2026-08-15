@@ -36,6 +36,96 @@ export type AdminDashboard = {
   health: AdminHealthBar[];
 };
 
+/** One bar on the revenue chart. */
+export type RevenuePoint = {
+  label: string;
+  /** Cash actually collected in the period, in whole currency units. */
+  value: number;
+  /** Marks the period in progress, which gets the highlight. */
+  current?: boolean;
+};
+
+export type RevenueSeries = {
+  points: RevenuePoint[];
+  /** False when nothing has ever been collected; the chart yields to a note. */
+  hasData: boolean;
+  basis: string;
+};
+
+/**
+ * Revenue actually collected, by month, over a trailing window.
+ *
+ * Replaces a hardcoded array — Jan 84k through Jun 104k, roughly $628k of
+ * invented revenue — that sat on `/admin`, the first screen an administrator
+ * sees, over an `invoice_payments` table containing zero rows. Everything else
+ * on that page was correctly wired to real queries, which made the one fake
+ * chart worse rather than better: it borrowed their credibility.
+ *
+ * Payments, not invoices, because "revenue" on a dashboard means money received
+ * — an issued invoice is a claim, not income. Each payment is attributed to the
+ * month it was PAID rather than the month its invoice was raised, so the
+ * series answers "what came in" instead of "what we hoped would".
+ *
+ * Months with no payments stay in the series as real zeros rather than being
+ * dropped: a gap in a time series is information, and closing it would compress
+ * a bad quarter into a shorter, healthier-looking chart.
+ */
+export async function getRevenueSeries(months = 6): Promise<RevenueSeries> {
+  noStore();
+  const supabase = await createClient();
+
+  const now = new Date();
+  // The window is built first so empty months exist as buckets, rather than
+  // being inferred from whatever data happens to come back.
+  const buckets: { key: string; label: string; value: number; current: boolean }[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    buckets.push({
+      key: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+      label: new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(d),
+      value: 0,
+      current: i === 0,
+    });
+  }
+
+  const from = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1)
+  ).toISOString();
+
+  // Void invoices are excluded: a payment against a cancelled invoice is a
+  // refund case, not revenue.
+  const { data: payments } = await supabase
+    .from("invoice_payments")
+    .select("amount, paid_at, invoice:invoices ( status )")
+    .gte("paid_at", from);
+
+  const index = new Map(buckets.map((b, i) => [b.key, i]));
+  let total = 0;
+
+  for (const row of (payments ?? []) as unknown as {
+    amount: number | string;
+    paid_at: string;
+    invoice: { status: string } | null;
+  }[]) {
+    if (row.invoice?.status === "void") continue;
+    const at = index.get(String(row.paid_at).slice(0, 7));
+    if (at === undefined) continue;
+    const amount = Number(row.amount) || 0;
+    buckets[at].value += amount;
+    total += amount;
+  }
+
+  return {
+    points: buckets.map(({ label, value, current }) => ({
+      label,
+      value: Math.round(value),
+      current,
+    })),
+    hasData: total > 0,
+    basis: "Payments received, excluding voided invoices.",
+  };
+}
+
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",

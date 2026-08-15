@@ -125,6 +125,50 @@ export type Database = {
         }
         Relationships: []
       }
+      availability_rules: {
+        Row: {
+          created_at: string
+          ends_at: string
+          id: string
+          is_active: boolean
+          profile_id: string
+          starts_at: string
+          timezone: string
+          updated_at: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          id?: string
+          is_active?: boolean
+          profile_id: string
+          starts_at: string
+          timezone?: string
+          updated_at?: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          id?: string
+          is_active?: boolean
+          profile_id?: string
+          starts_at?: string
+          timezone?: string
+          updated_at?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_rules_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       capabilities: {
         Row: {
           created_at: string
@@ -420,6 +464,63 @@ export type Database = {
           },
         ]
       }
+      email_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          payload: Json
+          send_after: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["email_status"]
+          subject: string
+          template: string
+          to_email: string
+          to_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          idempotency_key: string
+          last_error?: string | null
+          payload?: Json
+          send_after?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["email_status"]
+          subject: string
+          template: string
+          to_email: string
+          to_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          idempotency_key?: string
+          last_error?: string | null
+          payload?: Json
+          send_after?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["email_status"]
+          subject?: string
+          template?: string
+          to_email?: string
+          to_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invoice_line_items: {
         Row: {
           created_at: string
@@ -679,6 +780,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          archived_at: string | null
           assignee_id: string | null
           brief: string
           closed_at: string | null
@@ -702,6 +804,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           assignee_id?: string | null
           brief?: string
           closed_at?: string | null
@@ -725,6 +828,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           assignee_id?: string | null
           brief?: string
           closed_at?: string | null
@@ -1509,6 +1613,76 @@ export type Database = {
           },
         ]
       }
+      payment_intents: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string
+          invoice_id: string
+          provider: string
+          provider_ref: string | null
+          settled_at: string | null
+          state: Database["public"]["Enums"]["payment_state"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          failure_reason?: string | null
+          id?: string
+          idempotency_key: string
+          invoice_id: string
+          provider?: string
+          provider_ref?: string | null
+          settled_at?: string | null
+          state?: Database["public"]["Enums"]["payment_state"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          failure_reason?: string | null
+          id?: string
+          idempotency_key?: string
+          invoice_id?: string
+          provider?: string
+          provider_ref?: string | null
+          settled_at?: string | null
+          state?: Database["public"]["Enums"]["payment_state"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_intents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_intents_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payment_intents_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_modules: {
         Row: {
           created_at: string
@@ -1944,6 +2118,7 @@ export type Database = {
       }
       project_tasks: {
         Row: {
+          archived_at: string | null
           assignee_id: string | null
           awaiting_approval: boolean
           column_id: Database["public"]["Enums"]["board_column"]
@@ -1958,6 +2133,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           assignee_id?: string | null
           awaiting_approval?: boolean
           column_id?: Database["public"]["Enums"]["board_column"]
@@ -1972,6 +2148,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           assignee_id?: string | null
           awaiting_approval?: boolean
           column_id?: Database["public"]["Enums"]["board_column"]
@@ -2117,6 +2294,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_limits: {
+        Row: {
+          bucket: string
+          hits: number
+          identifier: string
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          hits?: number
+          identifier: string
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          hits?: number
+          identifier?: string
+          window_start?: string
+        }
+        Relationships: []
       }
       reviews: {
         Row: {
@@ -2510,6 +2708,8 @@ export type Database = {
           meta_description: string | null
           og_image_alt: string | null
           og_image_url: string | null
+          payment_instructions: string | null
+          payment_reference_hint: string | null
           site_name: string
           updated_at: string
           updated_by: string | null
@@ -2525,6 +2725,8 @@ export type Database = {
           meta_description?: string | null
           og_image_alt?: string | null
           og_image_url?: string | null
+          payment_instructions?: string | null
+          payment_reference_hint?: string | null
           site_name?: string
           updated_at?: string
           updated_by?: string | null
@@ -2540,6 +2742,8 @@ export type Database = {
           meta_description?: string | null
           og_image_alt?: string | null
           og_image_url?: string | null
+          payment_instructions?: string | null
+          payment_reference_hint?: string | null
           site_name?: string
           updated_at?: string
           updated_by?: string | null
@@ -3293,7 +3497,38 @@ export type Database = {
       }
     }
     Functions: {
+      claim_emails: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          payload: Json
+          send_after: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["email_status"]
+          subject: string
+          template: string
+          to_email: string
+          to_name: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       database_health: { Args: never; Returns: Json }
+      declare_payment: {
+        Args: { p_invoice: string; p_reference?: string }
+        Returns: string
+      }
       next_available_slug: {
         Args: { p_base: string; p_table: string }
         Returns: string
@@ -3301,6 +3536,14 @@ export type Database = {
       publish_page: { Args: { p_page_id: string }; Returns: string }
       reorder_menu_items: { Args: { p_items: Json }; Returns: undefined }
       reorder_services: { Args: { p_page_ids: string[] }; Returns: undefined }
+      resolve_email: {
+        Args: { p_error?: string; p_id: string; p_ok: boolean }
+        Returns: undefined
+      }
+      settle_payment_intent: {
+        Args: { p_intent: string; p_provider_ref?: string }
+        Returns: undefined
+      }
       slow_queries: {
         Args: { p_limit?: number }
         Returns: {
@@ -3356,6 +3599,7 @@ export type Database = {
         | "Growth Operations"
         | "Creative Engineering"
         | "Core Engineering"
+      email_status: "queued" | "sending" | "sent" | "failed" | "cancelled"
       invoice_status: "draft" | "sent" | "paid" | "overdue" | "void"
       keyword_intent:
         | "informational"
@@ -3375,6 +3619,13 @@ export type Database = {
         | "scheduled"
         | "unpublished"
         | "archived"
+      payment_state:
+        | "requires_payment"
+        | "processing"
+        | "succeeded"
+        | "failed"
+        | "cancelled"
+        | "refunded"
       portal: "ADMIN" | "STAFF" | "CLIENT"
       project_status: "Active" | "On Hold" | "Completed" | "Archived"
       review_status: "pending" | "approved" | "rejected"
@@ -3517,6 +3768,7 @@ export const Constants = {
         "Creative Engineering",
         "Core Engineering",
       ],
+      email_status: ["queued", "sending", "sent", "failed", "cancelled"],
       invoice_status: ["draft", "sent", "paid", "overdue", "void"],
       keyword_intent: [
         "informational",
@@ -3537,6 +3789,14 @@ export const Constants = {
         "scheduled",
         "unpublished",
         "archived",
+      ],
+      payment_state: [
+        "requires_payment",
+        "processing",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "refunded",
       ],
       portal: ["ADMIN", "STAFF", "CLIENT"],
       project_status: ["Active", "On Hold", "Completed", "Archived"],

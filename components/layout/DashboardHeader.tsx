@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Building2, FolderKanban, LifeBuoy, Receipt, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { CommandPalette, type CommandItem } from "@/components/shared/CommandPalette";
@@ -9,16 +8,22 @@ import { NotificationBell, type Notification } from "@/components/shared/Notific
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 /**
- * The palette and the bell are fed by the surrounding layout.
+ * The palette is fed by the surrounding layout; the bell feeds itself.
  *
  * Both used to ship hardcoded contents: the palette listed a "Halcyon" account
  * that existed nowhere else and an invoice INV-2043 that was never issued, and
  * the bell showed three invented notifications to everybody, including the
- * "$12,400 overdue" line. Empty is the correct default — a shell that has not
- * been given data should show none, not somebody else's.
+ * "$12,400 overdue" line. Those were replaced with empty defaults — correct in
+ * principle, but the bell's default was never overridden by any of the 31
+ * screens that render this header, so it stayed empty forever while database
+ * triggers wrote real notifications nobody saw.
+ *
+ * `notifications` is now left undefined by default. NotificationBell treats
+ * undefined as "load my own inbox" and a supplied array as an explicit
+ * override, so the bell is correct on every screen without 31 call sites having
+ * to remember to pass it.
  */
 const noCommands: CommandItem[] = [];
-const noNotifications: Notification[] = [];
 
 /**
  * Shared top bar for all three dashboards. Sticky and glassy so long tables keep
@@ -32,7 +37,7 @@ export function DashboardHeader({
   actions,
   presence,
   commands = noCommands,
-  notifications = noNotifications,
+  notifications,
   className,
 }: {
   title: string;

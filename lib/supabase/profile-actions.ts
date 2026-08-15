@@ -159,26 +159,98 @@ export async function listProfiles(): Promise<ProfileWithOrg[]> {
 export async function assignPortalAndRole(
   userId: string,
   portal: Portal,
-  roleId: string | null
+  roleId: string | null,
+  /**
+   * `undefined` leaves the organisation untouched; `null` clears it.
+   *
+   * Passing this at all is what makes a CLIENT account usable. Every
+   * client-facing RLS policy resolves through `private.current_org_id()`,
+   * which reads `profiles.organization_id` — and until this parameter existed
+   * nothing in the codebase ever wrote that column. A client could be created,
+   * signed in and given the CLIENT portal, and would still see an empty portal
+   * forever, because `organization_id = null` never matches a project's owner.
+   */
+  organizationId?: string | null
 ): Promise<ProfileResult> {
   const supabase = await createClient();
 
+  // A staff or admin account belongs to the agency, not to a customer. Silently
+  // keeping a stale organisation on someone moved off the client portal would
+  // leave them holding read access to that customer's projects.
+  const org = portal === "CLIENT" ? organizationId : null;
+
   const { error } = await supabase
     .from("profiles")
-    .update({ portal, role_id: roleId })
+    .update({
+      portal,
+      role_id: roleId,
+      ...(organizationId !== undefined || portal !== "CLIENT"
+        ? { organization_id: org ?? null }
+        : {}),
+    })
     .eq("id", userId);
 
   if (error) {
     // 42501 is the guard trigger refusing a non-admin caller.
     return {
       error: error.message.includes("administrator")
-        ? "Only an administrator can change a portal or role."
+        ? "Only an administrator can change a portal, role or organisation."
         : error.message,
     };
   }
 
   revalidatePath("/admin", "layout");
+  revalidatePath("/client", "layout");
   return { ok: true };
+}
+
+/**
+ * Links a client login to the customer account it belongs to.
+ *
+ * This is the single write that makes the client portal function. It is
+ * separated from `assignPortalAndRole` so the Clients screen can attach a
+ * person to an account without also restating their portal and role.
+ *
+ * The portal is forced to CLIENT in the same statement rather than assumed:
+ * an organisation on a STAFF profile would widen that person's project
+ * visibility through `organization_id = private.current_org_id()`, which is a
+ * privilege escalation dressed as an admin convenience.
+ */
+export async function setProfileOrganization(
+  userId: string,
+  organizationId: string | null
+): Promise<ProfileResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(
+      organizationId
+        ? { organization_id: organizationId, portal: "CLIENT" as Portal }
+        : { organization_id: null }
+    )
+    .eq("id", userId);
+
+  if (error) {
+    return {
+      error: error.message.includes("administrator")
+        ? "Only an administrator can assign an organisation."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/client", "layout");
+  return { ok: true };
+}
+
+/** Organisations an admin can attach a client login to. */
+export async function listOrganizationOptions(): Promise<
+  { id: string; name: string }[]
+> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("organizations").select("id, name").order("name");
+  return (data ?? []) as { id: string; name: string }[];
 }
 
 export async function setProfileActive(userId: string, isActive: boolean): Promise<ProfileResult> {

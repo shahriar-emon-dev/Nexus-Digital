@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { assertNotLeaked } from "./password-safety";
+import { authErrorMessage } from "./auth-errors";
 import { createClient } from "./server";
 import type { Portal } from "./types";
 
@@ -42,8 +43,10 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
 
   if (error) {
     // Supabase returns the same message for unknown email and wrong password,
-    // which is correct — distinguishing them enumerates accounts.
-    return { error: error.message };
+    // which is correct — distinguishing them enumerates accounts. That wording
+    // is passed through; only transport failures get rewritten, so an outage
+    // does not reach the visitor as a JSON parse error.
+    return { error: authErrorMessage(error) };
   }
 
   // A TOTP factor that is verified but not yet satisfied this session leaves
@@ -95,7 +98,7 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
     },
   });
 
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error) };
 
   revalidatePath("/", "layout");
   return { ok: true, redirectTo: "/auth/login?registered=1" };
@@ -117,7 +120,7 @@ export async function requestPasswordReset(formData: FormData): Promise<AuthResu
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`,
   });
 
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error) };
   // Deliberately identical whether or not the address exists.
   return { ok: true, redirectTo: "/auth/forgot-password?sent=1" };
 }
@@ -133,7 +136,7 @@ export async function updatePassword(formData: FormData): Promise<AuthResult> {
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error) };
 
   return { ok: true, redirectTo: "/auth/login?reset=1" };
 }
@@ -148,14 +151,14 @@ export async function verifyTotp(formData: FormData): Promise<AuthResult> {
   const supabase = await createClient();
 
   const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
-  if (listError) return { error: listError.message };
+  if (listError) return { error: authErrorMessage(listError) };
 
   const factor = factors?.totp?.[0];
   if (!factor) return { error: "No authenticator is enrolled on this account." };
 
   const { data: challenge, error: challengeError } =
     await supabase.auth.mfa.challenge({ factorId: factor.id });
-  if (challengeError) return { error: challengeError.message };
+  if (challengeError) return { error: authErrorMessage(challengeError) };
 
   const { error: verifyError } = await supabase.auth.mfa.verify({
     factorId: factor.id,

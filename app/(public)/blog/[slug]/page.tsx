@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import type { PageBlock } from "@/lib/supabase/page-actions";
 import { getPost } from "@/lib/supabase/content-queries";
+import { JsonLd, articleLd } from "@/components/seo/JsonLd";
 
 type Props = { params: { slug: string } };
 
@@ -31,6 +32,19 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <main>
+      {/* Spec §15.3. Dates and author come from content_details, so a post
+          without them emits an Article with those keys absent rather than
+          with invented values. */}
+      <JsonLd
+        data={articleLd({
+          headline: post.title,
+          url: `/blog/${params.slug}`,
+          excerpt: post.excerpt,
+          coverUrl: post.coverUrl,
+          publishedOn: post.publishedOn,
+          authorName: post.authorName,
+        })}
+      />
       <BlockRenderer blocks={post.blocks as PageBlock[]} />
     </main>
   );

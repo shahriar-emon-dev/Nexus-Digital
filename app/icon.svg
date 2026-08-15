@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Nexus">
+  <!--
+    A real icon, because there was not one: /favicon.ico, /icon.png and
+    /apple-icon.png all returned 404, which every browser requested on every
+    page load and logged as a console error. Next serves this file at /icon.svg
+    and emits the <link rel="icon"> for it automatically.
+
+    Drawn rather than rasterised so it stays sharp at every size and costs a few
+    hundred bytes. Replace it with the real mark when there is one.
+  -->
+  <rect width="32" height="32" rx="7" fill="#0B0D12"/>
+  <path d="M9 23V9l14 14V9" fill="none" stroke="#5B8CFF" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

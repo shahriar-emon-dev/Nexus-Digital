@@ -82,6 +82,8 @@ export type PublicService = {
   seo: Record<string, unknown>;
   category: string | null;
   priceFrom: number | null;
+  /** Needed by the Service JSON-LD offer; defaults to USD when unset. */
+  currency: string;
   leadTimeWeeks: number | null;
   summary: string | null;
 };
@@ -121,7 +123,7 @@ export async function getPublicService(slug: string): Promise<PublicService | nu
       .maybeSingle(),
     supabase
       .from("service_details")
-      .select("category, price_from, lead_time_weeks, summary")
+      .select("category, price_from, currency, lead_time_weeks, summary")
       .eq("page_id", page.id)
       .maybeSingle(),
   ]);
@@ -137,6 +139,7 @@ export async function getPublicService(slug: string): Promise<PublicService | nu
       ? null
       : Number(detail.price_from),
     leadTimeWeeks: detail?.lead_time_weeks ?? null,
+    currency: (detail as { currency?: string } | null)?.currency ?? "USD",
     summary: detail?.summary ?? null,
   };
 }
@@ -185,6 +188,95 @@ export async function listPublishedServices(): Promise<PublishedService[]> {
       updatedAt: p.updated_at as string,
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/**
+ * The public service catalogue, with everything a listing card needs.
+ *
+ * `listPublishedServices()` above returns slug/title/category only, which is
+ * all the header menu needs. The /services index needs summary, price and lead
+ * time too — and had none of them, because that page was a hardcoded marketing
+ * layout that queried nothing. Nine service pages existed in the CMS, five of
+ * them published, and the page whose entire job is to list them contained no
+ * link to a single one.
+ *
+ * Ordering mirrors the admin catalogue: featured first, then the editor's
+ * `display_order`, then alphabetically — so reordering in the admin shows up on
+ * the public site without a deploy.
+ */
+export type CatalogueEntry = {
+  slug: string;
+  title: string;
+  category: string | null;
+  summary: string | null;
+  priceFrom: number | null;
+  currency: string;
+  leadTimeWeeks: number | null;
+  coverImageUrl: string | null;
+  coverImageAlt: string | null;
+  isFeatured: boolean;
+};
+
+export async function listServiceCatalogue(): Promise<CatalogueEntry[]> {
+  const supabase = await createClient();
+
+  const { data: pages } = await supabase
+    .from("pages")
+    .select("id, title, slug, published_version_id")
+    .eq("page_type", "service")
+    .eq("status", "published");
+
+  const published = (pages ?? []).filter((p) => p.published_version_id);
+  if (published.length === 0) return [];
+
+  const { data: details } = await supabase
+    .from("service_details")
+    .select(
+      "page_id, category, summary, price_from, currency, lead_time_weeks, cover_image_url, cover_image_alt, is_featured, display_order"
+    )
+    .in("page_id", published.map((p) => p.id as string));
+
+  const byPage = new Map(
+    ((details ?? []) as unknown as {
+      page_id: string;
+      category: string | null;
+      summary: string | null;
+      price_from: number | string | null;
+      currency: string | null;
+      lead_time_weeks: number | null;
+      cover_image_url: string | null;
+      cover_image_alt: string | null;
+      is_featured: boolean;
+      display_order: number;
+    }[]).map((d) => [d.page_id, d])
+  );
+
+  return published
+    .map((p) => {
+      const d = byPage.get(p.id as string);
+      return {
+        slug: (p.slug as string).replace(/^services\//, ""),
+        title: p.title as string,
+        category: d?.category ?? null,
+        summary: d?.summary ?? null,
+        // A service with no price set shows "Talk to us" rather than "$0".
+        priceFrom:
+          d?.price_from === null || d?.price_from === undefined ? null : Number(d.price_from),
+        currency: d?.currency ?? "USD",
+        leadTimeWeeks: d?.lead_time_weeks ?? null,
+        coverImageUrl: d?.cover_image_url ?? null,
+        coverImageAlt: d?.cover_image_alt ?? null,
+        isFeatured: d?.is_featured ?? false,
+        order: d?.display_order ?? 9999,
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(b.isFeatured) - Number(a.isFeatured) ||
+        a.order - b.order ||
+        a.title.localeCompare(b.title)
+    )
+    .map(({ order: _order, ...entry }) => entry);
 }
 
 /* ------------------------------------------------------------ mutations -- */

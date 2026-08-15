@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { createClient } from "@/lib/supabase/server";
-import { listProfiles } from "@/lib/supabase/profile-actions";
+import { listOrganizationOptions, listProfiles } from "@/lib/supabase/profile-actions";
 import type { Role } from "@/lib/supabase/types";
 import { UsersTable } from "./UsersTable";
 
@@ -14,9 +14,10 @@ export const metadata: Metadata = {
 export default async function AdminSettingsUsersPage() {
   const supabase = await createClient();
 
-  const [{ data: roles }, profiles, { data: auth }] = await Promise.all([
+  const [{ data: roles }, profiles, organizations, { data: auth }] = await Promise.all([
     supabase.from("roles").select("*").order("name"),
     listProfiles(),
+    listOrganizationOptions(),
     supabase.auth.getUser(),
   ]);
 
@@ -36,7 +37,8 @@ export default async function AdminSettingsUsersPage() {
         </h1>
         <p className="mt-2 max-w-2xl text-ink-tertiary">
           Every account on the platform. Portal decides which surface someone can
-          reach; role decides what they can do once inside. Both are enforced by
+          reach; role decides what they can do once inside; a client account
+          decides which customer&rsquo;s data they see. All three are enforced by
           the database, not only by this screen.
         </p>
       </header>
@@ -44,6 +46,7 @@ export default async function AdminSettingsUsersPage() {
       <UsersTable
         initialProfiles={profiles}
         roles={(roles as Role[] | null) ?? []}
+        organizations={organizations}
         currentUserId={auth.user?.id ?? ""}
       />
     </div>

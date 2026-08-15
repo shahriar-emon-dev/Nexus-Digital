@@ -94,6 +94,24 @@ export async function listProjects(): Promise<PortalProject[]> {
   return rows.map((r) => toPortalProject(r, progress[r.id] ?? 0));
 }
 
+/**
+ * The real primary key behind a slug.
+ *
+ * `PortalProject.id` is deliberately the SLUG — the screens link with it and
+ * that mapping is load-bearing. Anything writing a foreign key needs the uuid
+ * instead, and reusing the portal shape for that silently stores a slug in a
+ * uuid column. Callers that mutate ask for this explicitly.
+ */
+export async function getProjectIdBySlug(slug: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
 export async function getProjectBySlug(slug: string): Promise<PortalProject | null> {
   const supabase = await createClient();
   const { data } = await supabase.from("projects").select(SELECT).eq("slug", slug).maybeSingle();

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 
 import { getStaffBoard } from "@/lib/supabase/staff-workspace";
+import { listProjectOptions } from "@/lib/supabase/project-queries";
+import { getPeopleDirectory } from "@/lib/supabase/staff-queries";
 import type { KanbanState } from "@/components/shared/KanbanBoard";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { BoardClient } from "./BoardClient";
+import { NewTaskDialog } from "./NewTaskDialog";
 
 export const metadata: Metadata = { title: "Board" };
 
@@ -15,7 +18,16 @@ export const metadata: Metadata = { title: "Board" };
  * nothing tracks. It now describes what is actually on the board.
  */
 export default async function StaffBoardPage() {
-  const grouped = await getStaffBoard();
+  const [grouped, projectOptions, directory] = await Promise.all([
+    getStaffBoard(),
+    listProjectOptions(),
+    getPeopleDirectory(),
+  ]);
+
+  const assignees = Object.entries(directory).map(([id, person]) => ({
+    id,
+    name: person.name,
+  }));
 
   const initialCards: KanbanState = Object.fromEntries(
     Object.entries(grouped).map(([columnId, cards]) => [
@@ -58,6 +70,7 @@ export default async function StaffBoardPage() {
           { label: "Staff", href: "/staff" },
           { label: "Board" },
         ]}
+        actions={<NewTaskDialog projects={projectOptions} assignees={assignees} />}
       />
 
       <div className="min-w-0 px-5 py-6 lg:px-8">

@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { getPageDraft } from "@/lib/supabase/page-actions";
 import { getServiceConfig } from "@/lib/supabase/service-config";
+import {
+  getContentDetails,
+  listAuthorOptions,
+} from "@/lib/supabase/content-details-actions";
 import { PageEditor } from "./PageEditor";
 
 export const metadata: Metadata = { title: "Edit page" };
@@ -16,6 +20,12 @@ export default async function AdminPageEditorRoute({ params }: { params: { id: s
   // editor without that pane rather than a second editor.
   const serviceConfig =
     draft.page.page_type === "service" ? await getServiceConfig(params.id) : null;
+
+  // Posts and case studies carry a sidecar row of editorial metadata.
+  const editorial = draft.page.page_type === "post" || draft.page.page_type === "case_study";
+  const [contentDetails, authors] = editorial
+    ? await Promise.all([getContentDetails(params.id), listAuthorOptions()])
+    : [null, []];
 
   return (
     <div className="flex flex-col gap-8 px-5 py-10 lg:px-10">
@@ -36,7 +46,12 @@ export default async function AdminPageEditorRoute({ params }: { params: { id: s
         </p>
       </header>
 
-      <PageEditor draft={draft} serviceConfig={serviceConfig} />
+      <PageEditor
+        draft={draft}
+        serviceConfig={serviceConfig}
+        contentDetails={contentDetails}
+        authors={authors}
+      />
     </div>
   );
 }

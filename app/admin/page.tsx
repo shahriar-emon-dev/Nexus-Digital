@@ -1,8 +1,16 @@
 import * as React from "react";
+import Link from "next/link";
 import type { Metadata } from "next";
-import { Briefcase, ShieldCheck, TrendingUp, Users, Wallet, type LucideIcon } from "lucide-react";
+import {
+  Briefcase,
+  ScrollText,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { getAdminDashboard } from "@/lib/supabase/dashboard-queries";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,10 +43,30 @@ export default async function AdminDashboardPage() {
             Real-time oversight of agency performance and systems.
           </p>
         </div>
-        <Button size="lg" className="rounded-lg">
-          <ShieldCheck />
-          Run System Audit
-        </Button>
+        {/* "Run System Audit" sat here with no handler: a primary button on the
+            primary screen that did nothing when clicked. Replaced with links to
+            the two screens that actually perform the checks it implied — the
+            advisor-backed database report and the trigger-written audit trail. */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="lg"
+            className="rounded-lg"
+            render={<Link href="/admin/database" />}
+          >
+            <ShieldCheck />
+            Database health
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="rounded-lg"
+            render={<Link href="/admin/audit-logs" />}
+          >
+            <ScrollText />
+            Audit trail
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-12 gap-6">

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { getMarketingStats } from "@/lib/supabase/marketing-stats";
+import { JsonLd, organizationLd } from "@/components/seo/JsonLd";
 import { getSiteSettings } from "@/lib/supabase/nav-actions";
 import { getPublishedPage } from "@/lib/supabase/page-actions";
 import { createClient } from "@/lib/supabase/server";
@@ -98,6 +99,15 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Spec §15.3. Name and description come from site_settings so an admin
+          renaming the agency updates its structured data too. */}
+      <JsonLd
+        data={organizationLd({
+          name: settings.site_name ?? "Nexus Digital Agency",
+          description: settings.meta_description,
+          logoUrl: settings.og_image_url,
+        })}
+      />
       <div className="noise-field" aria-hidden />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}

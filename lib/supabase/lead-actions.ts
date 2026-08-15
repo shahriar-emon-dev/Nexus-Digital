@@ -180,3 +180,94 @@ export async function deleteLead(id: string): Promise<Result> {
   revalidatePath("/admin/leads");
   return { ok: true };
 }
+
+/**
+ * Turns a won lead into a customer account.
+ *
+ * This was the missing hand-off at the centre of the pipeline. Visitor →
+ * service → form → lead → CRM all worked and then stopped: converting an
+ * enquiry into an organisation meant an administrator retyping the company
+ * name into the Clients screen, with nothing linking the two afterwards. The
+ * `leads.organization_id` column existed for exactly this and nothing ever set
+ * it, so a client account could never be traced back to the enquiry behind it.
+ *
+ * Idempotent: a lead already carrying an organisation returns that one instead
+ * of creating a duplicate, because the obvious way for this to be called twice
+ * is somebody clicking Convert again after a slow response.
+ */
+export async function convertLeadToClient(
+  leadId: string,
+  form: FormData
+): Promise<Result<{ organizationId: string }>> {
+  const supabase = await createClient();
+
+  const { data: lead, error: readError } = await supabase
+    .from("leads")
+    .select("id, full_name, email, company, organization_id")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (readError) return { error: readError.message };
+  if (!lead) return { error: "That lead no longer exists." };
+  if (lead.organization_id) {
+    return { ok: true, data: { organizationId: lead.organization_id } };
+  }
+
+  // The company on the enquiry is a starting point, not a decision — an admin
+  // converting a lead usually wants to tidy the name first.
+  const name =
+    String(form.get("organizationName") ?? "").trim() ||
+    lead.company?.trim() ||
+    lead.full_name.trim();
+  if (name.length < 2) return { error: "Give the client account a name." };
+
+  const industry = String(form.get("industry") ?? "").trim() || null;
+  let organizationId = String(form.get("organizationId") ?? "").trim();
+
+  if (!organizationId) {
+    const base =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "client";
+    const { data: allocated } = await supabase.rpc("next_available_slug", {
+      p_table: "organizations",
+      p_base: base,
+    });
+
+    const { data: org, error: orgError } = await supabase
+      .from("organizations")
+      .insert({
+        name,
+        slug: allocated ?? base,
+        industry,
+        // A converted lead has not been onboarded yet; defaulting to "healthy"
+        // would drop a brand-new account straight into the healthy bucket on
+        // the client health report.
+        health: "onboarding",
+      })
+      .select("id")
+      .single();
+
+    if (orgError || !org) {
+      return { error: orgError?.message ?? "Could not create the client account." };
+    }
+    organizationId = org.id;
+  }
+
+  const { error: linkError } = await supabase
+    .from("leads")
+    .update({
+      organization_id: organizationId,
+      status: "won",
+      closed_at: new Date().toISOString(),
+    })
+    .eq("id", leadId);
+
+  if (linkError) return { error: linkError.message };
+
+  revalidatePath("/admin/leads");
+  revalidatePath("/admin/clients");
+  revalidatePath("/admin/projects");
+  return { ok: true, data: { organizationId } };
+}

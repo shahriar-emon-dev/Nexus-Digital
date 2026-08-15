@@ -3,7 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { getProjectBySlug, listMilestones, listTasks } from "@/lib/supabase/project-queries";
+import {
+  getProjectBySlug,
+  getProjectIdBySlug,
+  listMilestones,
+  listTasks,
+} from "@/lib/supabase/project-queries";
+import { listProjectMilestones } from "@/lib/supabase/milestone-actions";
 import { listProjectFiles } from "@/lib/supabase/file-actions";
 import { getPeopleDirectory } from "@/lib/supabase/staff-queries";
 import { projectStatusTone } from "@/lib/client-portal";
@@ -12,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { MilestoneRoadmap } from "@/components/client/MilestoneRoadmap";
+import { MilestoneManager } from "./MilestoneManager";
+import { NewDeliverableDialog } from "./NewDeliverableDialog";
 
 type Params = { params: { id: string } };
 
@@ -32,12 +40,17 @@ export default async function StaffProjectDetailPage({ params }: Params) {
   const project = await getProjectBySlug(params.id);
   if (!project) notFound();
 
-  const [milestones, tasks, files, people] = await Promise.all([
+  const [milestones, tasks, files, people, realId] = await Promise.all([
     listMilestones(params.id),
     listTasks(params.id),
     listProjectFiles(),
     getPeopleDirectory(),
+    getProjectIdBySlug(params.id),
   ]);
+
+  // The editable list is keyed by the real uuid; the roadmap above renders the
+  // portal-shaped copy. Two shapes of the same rows, on purpose.
+  const editableMilestones = realId ? await listProjectMilestones(realId) : [];
 
   const money = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -58,7 +71,14 @@ export default async function StaffProjectDetailPage({ params }: Params) {
           { label: "Board", href: "/staff/projects" },
           { label: project.name },
         ]}
-        actions={<Badge variant={projectStatusTone[project.status]}>{project.status}</Badge>}
+        actions={
+          <div className="flex items-center gap-2">
+            {realId && (
+              <NewDeliverableDialog projectId={realId} projectName={project.name} />
+            )}
+            <Badge variant={projectStatusTone[project.status]}>{project.status}</Badge>
+          </div>
+        }
       />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-6 lg:px-8">
@@ -120,6 +140,11 @@ export default async function StaffProjectDetailPage({ params }: Params) {
         </Card>
 
         {milestones.length > 0 && <MilestoneRoadmap milestones={milestones} people={people} />}
+
+        {/* Authoring, not just display. Milestones had no create/update/delete
+            path anywhere, so the roadmap above — and the client's copy of it —
+            could only ever show rows that came from the demo seed file. */}
+        {realId && <MilestoneManager projectId={realId} milestones={editableMilestones} />}
 
         <Card variant="glass" className="gap-3 rounded-2xl p-6">
           <h2 className="font-heading text-xl font-semibold text-ink">Files</h2>

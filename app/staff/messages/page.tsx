@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
 
-import { listChannels, listMessages } from "@/lib/supabase/message-actions";
+import {
+  listChannelCandidates,
+  listChannels,
+  listMessages,
+} from "@/lib/supabase/message-actions";
+import { listProjectOptions } from "@/lib/supabase/project-queries";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { MessagesHub } from "@/app/client/messages/MessagesHub";
+import { NewChannelDialog } from "./NewChannelDialog";
 
 export const metadata: Metadata = { title: "Messages" };
 
@@ -25,7 +31,11 @@ export default async function StaffMessagesPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const channels = await listChannels();
+  const [channels, candidates, projects] = await Promise.all([
+    listChannels(),
+    listChannelCandidates(),
+    listProjectOptions(),
+  ]);
   const requested = searchParams.channel;
   const active =
     (requested && channels.some((c) => c.id === requested) ? requested : null) ??
@@ -39,6 +49,7 @@ export default async function StaffMessagesPage({
         title="Messages"
         titleAs="p"
         breadcrumbs={[{ label: "Staff", href: "/staff" }, { label: "Messages" }]}
+        actions={<NewChannelDialog candidates={candidates} projects={projects} />}
       />
 
       <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-6 pb-4 lg:px-6">

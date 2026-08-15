@@ -63,3 +63,46 @@ export async function updateSiteSettings(form: FormData): Promise<Result> {
   revalidatePath("/admin/settings");
   return { ok: true };
 }
+
+/**
+ * Bank/transfer details shown to a client on an unpaid invoice.
+ *
+ * Separate from `updateSiteSettings` on purpose: that action owns the public
+ * meta tags and is reachable from the SEO panel, and merging the two would mean
+ * saving a meta description could blank the agency's bank details if the form
+ * happened not to include them.
+ *
+ * Stored raw and rendered as plain text. No HTML sanitisation is applied
+ * because no HTML is ever emitted — see PaymentPanel.
+ */
+export async function updatePaymentSettings(form: FormData): Promise<Result> {
+  const supabase = await createClient();
+
+  const instructions = String(form.get("paymentInstructions") ?? "").trim();
+  const hint = String(form.get("paymentReferenceHint") ?? "").trim();
+
+  if (instructions.length > 4000) {
+    return { error: "Payment details are too long. Keep them under 4000 characters." };
+  }
+  if (hint.length > 160) return { error: "That reference hint is too long." };
+
+  const { error } = await supabase
+    .from("site_settings")
+    .update({
+      payment_instructions: instructions || null,
+      payment_reference_hint: hint || null,
+    })
+    .eq("id", true);
+
+  if (error) {
+    return {
+      error: error.message.toLowerCase().includes("row-level security")
+        ? "Only an administrator can change payment details."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/client/invoices");
+  return { ok: true };
+}

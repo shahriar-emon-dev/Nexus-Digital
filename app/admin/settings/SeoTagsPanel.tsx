@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Code2, Globe, ImageUp, LineChart } from "lucide-react";
+import { Code2, Globe, LineChart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ID_PATTERNS as idPatterns, SEO_LIMITS } from "@/lib/derive";

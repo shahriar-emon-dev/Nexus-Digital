@@ -15,13 +15,13 @@ export default async function ClientPaymentsPage() {
   // RLS scopes payments through their invoice, so there is no filter here.
   const { data } = await supabase
     .from("invoice_payments")
-    .select("id, amount, paid_on, method, reference, invoice:invoices ( number )")
-    .order("paid_on", { ascending: false });
+    .select("id, amount, paid_at, method, reference, invoice:invoices ( number )")
+    .order("paid_at", { ascending: false });
 
   const payments = (data ?? []) as unknown as {
     id: string;
     amount: number;
-    paid_on: string;
+    paid_at: string;
     method: string | null;
     reference: string | null;
     invoice: { number: string } | null;
@@ -79,7 +79,7 @@ export default async function ClientPaymentsPage() {
                   {payments.map((p) => (
                     <tr key={p.id} className="border-b border-line-subtle last:border-0">
                       <td data-tabular className="px-5 py-3 whitespace-nowrap text-ink-tertiary">
-                        {p.paid_on}
+                        {p.paid_at}
                       </td>
                       <td className="px-5 py-3 text-ink">{p.invoice?.number ?? "—"}</td>
                       <td className="px-5 py-3 text-ink-tertiary">{p.method ?? "—"}</td>

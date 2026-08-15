@@ -180,6 +180,222 @@ export async function listMessages(channelId: string): Promise<ChannelMessage[]>
 
 /* ------------------------------------------------------------ mutations -- */
 
+/**
+ * People a staff member or admin may open a conversation with.
+ *
+ * A channel is created with its participants attached, so this list decides
+ * who can be pulled into one. RLS on `profiles` restricts a non-admin to their
+ * own row, so a staff member sees a short list and an admin sees everyone —
+ * which is the correct behaviour rather than something to work around.
+ */
+export type ChannelCandidate = {
+  id: string;
+  name: string;
+  email: string;
+  portal: string;
+  organizationName: string | null;
+};
+
+export async function listChannelCandidates(): Promise<ChannelCandidate[]> {
+  noStore();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, portal, organizations ( name )")
+    .neq("id", user.id)
+    .eq("is_active", true)
+    .order("full_name");
+
+  return ((data ?? []) as unknown as {
+    id: string;
+    full_name: string | null;
+    email: string;
+    portal: string;
+    organizations: { name: string } | null;
+  }[]).map((p) => ({
+    id: p.id,
+    name: p.full_name || p.email,
+    email: p.email,
+    portal: p.portal,
+    organizationName: p.organizations?.name ?? null,
+  }));
+}
+
+/**
+ * Opens a conversation.
+ *
+ * This is the operation the messaging system was missing entirely. Every read
+ * path, the unread derivation, the realtime subscription and the composer were
+ * written and correct, and there was no way to create the row they all hang
+ * off — so `message_channels` held zero rows and the feature was unreachable.
+ *
+ * The creator is always enrolled. The select policy is `in_channel()`, so a
+ * channel whose creator forgot to add themselves would vanish the instant it
+ * was made.
+ */
+export async function createChannel(
+  formData: FormData
+): Promise<{ error: string } | { ok: true; id: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You are not signed in." };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const purpose = String(formData.get("purpose") ?? "").trim() || null;
+  const projectId = String(formData.get("projectId") ?? "").trim() || null;
+  const participantIds = formData
+    .getAll("participantIds")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  if (name.length < 2) return { error: "Give the channel a name." };
+  if (name.length > 120) return { error: "That name is too long." };
+
+  const { data: channel, error } = await supabase
+    .from("message_channels")
+    .insert({
+      name,
+      purpose,
+      project_id: projectId,
+      is_direct: false,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !channel) {
+    return { error: friendly(error?.message ?? "Unknown error", "create a channel") };
+  }
+
+  const members = Array.from(new Set([user.id, ...participantIds]));
+  const { error: memberError } = await supabase
+    .from("channel_participants")
+    .insert(members.map((profile_id) => ({ channel_id: channel.id, profile_id })));
+
+  if (memberError) {
+    // A channel nobody is in is invisible even to its creator. Roll back rather
+    // than leave an unreachable row behind.
+    await supabase.from("message_channels").delete().eq("id", channel.id);
+    return { error: friendly(memberError.message, "add people to the channel") };
+  }
+
+  revalidatePath("/client/messages");
+  revalidatePath("/staff/messages");
+  return { ok: true, id: channel.id };
+}
+
+/** Adds people to an existing channel. Already-present members are ignored. */
+export async function addParticipants(
+  channelId: string,
+  participantIds: string[]
+): Promise<Result> {
+  const supabase = await createClient();
+  if (participantIds.length === 0) return { error: "Choose at least one person." };
+
+  const { data: existing } = await supabase
+    .from("channel_participants")
+    .select("profile_id")
+    .eq("channel_id", channelId);
+
+  const already = new Set((existing ?? []).map((r) => r.profile_id));
+  const toAdd = participantIds.filter((id) => !already.has(id));
+  if (toAdd.length === 0) return { ok: true };
+
+  const { error } = await supabase
+    .from("channel_participants")
+    .insert(toAdd.map((profile_id) => ({ channel_id: channelId, profile_id })));
+  if (error) return { error: friendly(error.message, "add people to this channel") };
+
+  revalidatePath("/client/messages");
+  revalidatePath("/staff/messages");
+  return { ok: true };
+}
+
+/**
+ * Guarantees a project has a conversation, and returns its id.
+ *
+ * Called when a project is created, so a client never lands in a portal whose
+ * Messages tab is empty with no way to start one — clients cannot create
+ * channels themselves, by policy.
+ */
+export async function ensureProjectChannel(projectId: string): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("message_channels")
+    .select("id")
+    .eq("project_id", projectId)
+    .limit(1)
+    .maybeSingle();
+  if (existing) return existing.id;
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, name, organization_id, lead_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project) return null;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: channel, error } = await supabase
+    .from("message_channels")
+    .insert({
+      name: project.name,
+      purpose: "Project conversation",
+      project_id: project.id,
+      organization_id: project.organization_id,
+      is_direct: false,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !channel) return null;
+
+  const [assigned, clients] = await Promise.all([
+    supabase.from("project_assignments").select("profile_id").eq("project_id", project.id),
+    project.organization_id
+      ? supabase
+          .from("profiles")
+          .select("id")
+          .eq("organization_id", project.organization_id)
+          .eq("is_active", true)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+  ]);
+
+  const members = Array.from(
+    new Set(
+      [
+        user?.id ?? null,
+        project.lead_id,
+        ...(assigned.data ?? []).map((a) => a.profile_id),
+        ...((clients.data ?? []) as { id: string }[]).map((c) => c.id),
+      ].filter((v): v is string => Boolean(v))
+    )
+  );
+
+  if (members.length > 0) {
+    await supabase
+      .from("channel_participants")
+      .insert(members.map((profile_id) => ({ channel_id: channel.id, profile_id })));
+  }
+
+  revalidatePath("/client/messages");
+  revalidatePath("/staff/messages");
+  return channel.id;
+}
+
 export async function sendMessage(channelId: string, formData: FormData): Promise<Result> {
   const supabase = await createClient();
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Search, Trash2, TrendingUp, Users } from "lucide-react";
+import { Building2, Check, Loader2, Search, Trash2, TrendingUp, Users } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage, initials } from "@/components/ui/avatar";
@@ -27,6 +27,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { useToast } from "@/components/ui/toast";
 import { useRealtime } from "@/lib/supabase/use-realtime";
 import {
+  convertLeadToClient,
   deleteLead,
   setLeadStatus,
   updateLead,
@@ -76,6 +77,7 @@ export function LeadsTable({
   const [busy, setBusy] = React.useState(false);
   const [editing, setEditing] = React.useState<Lead | null>(null);
   const [removing, setRemoving] = React.useState<Lead | null>(null);
+  const [converting, setConverting] = React.useState<Lead | null>(null);
 
   React.useEffect(() => setLeads(initial), [initial]);
 
@@ -298,6 +300,20 @@ export function LeadsTable({
 
                       <td className="px-3 py-3">
                         <span className="flex justify-end gap-1">
+                          {/* The pipeline's central hand-off. Without this an
+                              admin had to retype the company into the Clients
+                              screen, and nothing linked the two afterwards —
+                              leads.organization_id existed and was never set. */}
+                          {!l.organization_id && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => setConverting(l)}
+                            >
+                              <Building2 />
+                              Convert
+                            </Button>
+                          )}
                           <Button variant="ghost" size="xs" onClick={() => setEditing(l)}>
                             Edit
                           </Button>
@@ -456,6 +472,78 @@ export function LeadsTable({
                 </div>
               </DialogFooter>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* --------------------------------------------------------- convert -- */}
+      <Dialog open={converting !== null} onOpenChange={(o) => !o && setConverting(null)}>
+        <DialogContent>
+          {converting && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const form = new FormData(e.currentTarget);
+                setBusy(true);
+                setError(null);
+                const result = await convertLeadToClient(converting.id, form);
+                setBusy(false);
+                if ("error" in result) {
+                  setError(result.error);
+                  return;
+                }
+                setConverting(null);
+                toast.add({ title: "Client account created", type: "success" });
+                router.refresh();
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>Convert to a client</DialogTitle>
+                <DialogDescription>
+                  Creates the client account, links it back to this enquiry and
+                  marks the lead won. You can then attach their login on the
+                  Users screen.
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogBody className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="conv-name"
+                    className="text-[0.8125rem] font-medium text-ink"
+                  >
+                    Account name
+                  </label>
+                  {/* Prefilled from the enquiry, editable because the company a
+                      visitor types is rarely how it should be filed. */}
+                  <Input
+                    id="conv-name"
+                    name="organizationName"
+                    required
+                    minLength={2}
+                    defaultValue={converting.company ?? converting.full_name}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="conv-industry"
+                    className="text-[0.8125rem] font-medium text-ink"
+                  >
+                    Industry <span className="text-ink-tertiary">(optional)</span>
+                  </label>
+                  <Input id="conv-industry" name="industry" />
+                </div>
+              </DialogBody>
+
+              <DialogFooter>
+                <DialogClose render={<Button variant="ghost" type="button">Cancel</Button>} />
+                <Button type="submit" disabled={busy}>
+                  <Building2 />
+                  Create client account
+                </Button>
+              </DialogFooter>
+            </form>
           )}
         </DialogContent>
       </Dialog>

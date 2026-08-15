@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import type { PageBlock } from "@/lib/supabase/page-actions";
 import { getCaseStudy } from "@/lib/supabase/content-queries";
+import { JsonLd, articleLd } from "@/components/seo/JsonLd";
 
 type Props = { params: { slug: string } };
 
@@ -32,6 +33,16 @@ export default async function CaseStudyPage({ params }: Props) {
 
   return (
     <main>
+      <JsonLd
+        data={articleLd({
+          headline: study.title,
+          url: `/case-studies/${params.slug}`,
+          excerpt: study.excerpt,
+          coverUrl: study.coverUrl,
+          publishedOn: study.publishedOn,
+          authorName: study.authorName,
+        })}
+      />
       <BlockRenderer blocks={study.blocks as PageBlock[]} />
     </main>
   );

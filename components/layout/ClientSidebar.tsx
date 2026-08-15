@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bell,
   CalendarDays,
   Building2,
   CreditCard,
@@ -88,6 +89,9 @@ const buildSections = (counts: SidebarCounts): NavSection[] => [
     label: "Engagement",
     items: [
       { href: "/client/meetings", label: "Meetings", icon: CalendarDays },
+      // Staff had a notifications screen and clients did not, though the same
+      // triggers write to both inboxes.
+      { href: "/client/notifications", label: "Notifications", icon: Bell },
       { href: "/client/reports", label: "Reports", icon: Star },
       { href: "/client/reviews/new", label: "Leave a review", icon: Star },
     ],

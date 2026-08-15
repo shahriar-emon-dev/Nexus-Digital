@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_noStore as noStore } from "next/cache";
 
+import { ensureProjectChannel } from "./message-actions";
 import { createClient } from "./server";
 import type { Database } from "./types";
 
@@ -180,8 +181,18 @@ export async function createProject(form: FormData): Promise<Result<{ id: string
 
   if (error) return { error: error.message };
 
+  // Every project gets a conversation on creation. Clients cannot open channels
+  // themselves (the insert policy is staff-and-admin only, deliberately), so
+  // without this a client's Messages tab would be permanently empty with no
+  // affordance to fix it. A failure here is not fatal to the project — the
+  // channel can be created later from Messages — so the error is swallowed
+  // rather than rolling back a project the user asked for.
+  await ensureProjectChannel(data.id as string);
+
   revalidatePath("/admin/projects");
   revalidatePath("/client/projects");
+  revalidatePath("/client/messages");
+  revalidatePath("/staff/messages");
   return { ok: true, data: { id: data.id as string } };
 }
 

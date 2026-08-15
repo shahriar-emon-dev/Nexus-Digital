@@ -87,21 +87,29 @@ export async function getPublicMenu(location: MenuLocation): Promise<ResolvedMen
 export async function getSiteSettings(): Promise<{
   homepage_page_id: string | null;
   site_name: string;
+  meta_description: string | null;
+  og_image_url: string | null;
 }> {
   const supabase = await createClient();
   // Reads the view, not the table. This is called from the public homepage with
   // the anon key, and site_settings itself became authenticated-only in 0060 so
-  // that `updated_by` — a staff UUID — stops leaking. The view exposes the same
-  // two columns this needs and none of the identifying ones.
+  // that `updated_by` — a staff UUID — stops leaking. The view exposes the
+  // presentational columns this needs and none of the identifying ones.
+  //
+  // meta_description and og_image_url joined the list when the homepage began
+  // emitting Organization structured data. Both already appear as meta tags on
+  // every public page, so surfacing them here reveals nothing new.
   const { data } = await supabase
     .from("public_site_settings")
-    .select("homepage_page_id, site_name")
+    .select("homepage_page_id, site_name, meta_description, og_image_url")
     .maybeSingle();
   // A view loses NOT NULL, so site_name comes back nullable even though the
   // underlying column is not — coalesced rather than cast away.
   return {
     homepage_page_id: data?.homepage_page_id ?? null,
     site_name: data?.site_name ?? "Nexus",
+    meta_description: data?.meta_description ?? null,
+    og_image_url: data?.og_image_url ?? null,
   };
 }
 

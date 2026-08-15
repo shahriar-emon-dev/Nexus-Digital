@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
-import { PrintButton } from "./PaymentPanel";
+import { getSiteSettings } from "@/lib/supabase/site-settings-actions";
+import { getMyDeclaration } from "@/lib/supabase/payment-actions";
+import { PaymentPanel, PrintButton } from "./PaymentPanel";
 
 type Params = { params: { id: string } };
 
@@ -26,7 +28,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * which is what stops this being an enumeration oracle.
  */
 export default async function InvoiceDetailPage({ params }: Params) {
-  const invoice = await getInvoice(params.id);
+  const [invoice, settings, declared] = await Promise.all([
+    getInvoice(params.id),
+    getSiteSettings(),
+    getMyDeclaration(params.id),
+  ]);
   if (!invoice) notFound();
 
   const t = invoice.totals;
@@ -142,6 +148,19 @@ export default async function InvoiceDetailPage({ params }: Params) {
             </p>
           )}
         </Card>
+
+        {/* Payments are collected manually, so this shows the transfer details
+            an admin has published and lets the client flag that they have
+            paid — it never marks the invoice settled itself. */}
+        <PaymentPanel
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.number}
+          outstanding={t.outstanding}
+          paid={t.outstanding <= 0}
+          instructions={settings?.payment_instructions ?? null}
+          referenceHint={settings?.payment_reference_hint ?? null}
+          declared={declared}
+        />
       </div>
     </>
   );

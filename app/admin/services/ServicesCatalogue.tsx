@@ -39,7 +39,6 @@ import {
   updateServiceDetails,
   type CatalogueService,
 } from "@/lib/supabase/service-actions";
-import { cn } from "@/lib/utils";
 
 const statusTone: Record<string, "success" | "warning" | "default"> = {
   published: "success",

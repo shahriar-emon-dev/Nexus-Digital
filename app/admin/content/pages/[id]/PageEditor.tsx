@@ -43,6 +43,8 @@ import {
 import { MediaField } from "@/components/cms/MediaPicker";
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { ServiceConfigPane } from "@/components/cms/ServiceConfigPane";
+import { ContentDetailsPane } from "@/components/cms/ContentDetailsPane";
+import type { ContentDetails } from "@/lib/supabase/content-details-actions";
 import type { ServiceConfig } from "@/lib/supabase/service-config";
 import { cn } from "@/lib/utils";
 
@@ -194,11 +196,22 @@ type SaveState = "idle" | "dirty" | "saving" | "saved" | "failed";
 export function PageEditor({
   draft,
   serviceConfig = null,
+  contentDetails = null,
+  authors = [],
 }: {
   draft: PageDraft;
   /** Present when this page is a service, which gives the rail its extra pane. */
   serviceConfig?: ServiceConfig | null;
+  /**
+   * Present when this page is a post or case study. Null means the sidecar row
+   * does not exist yet, which the pane distinguishes from "exists but empty" —
+   * a published post with no details is a live page missing its summary.
+   */
+  contentDetails?: ContentDetails | null;
+  authors?: { id: string; name: string }[];
 }) {
+  const isEditorial =
+    draft.page.page_type === "post" || draft.page.page_type === "case_study";
   const router = useRouter();
   const toast = useToast();
 
@@ -535,6 +548,17 @@ export function PageEditor({
             onRestore={restore}
             busy={busy}
           />
+
+          {/* Editorial metadata drives the index cards and their ordering, and
+              had no write path anywhere before this. */}
+          {isEditorial && (
+            <ContentDetailsPane
+              pageId={draft.page.id}
+              details={contentDetails}
+              authors={authors}
+              isPublished={draft.page.status === "published"}
+            />
+          )}
 
           <Card>
             <CardContent className="p-3">

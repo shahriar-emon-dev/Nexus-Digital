@@ -1,99 +1,91 @@
-"use client";
-
-import * as React from "react";
+import { TrendingUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-
-type Point = { label: string; value: number; current?: boolean };
-
-const datasets: Record<"Monthly" | "Daily", { unit: string; points: Point[] }> = {
-  Monthly: {
-    unit: "k",
-    points: [
-      { label: "Jan", value: 84 },
-      { label: "Feb", value: 92 },
-      { label: "Mar", value: 88 },
-      { label: "Apr", value: 118 },
-      { label: "May", value: 142, current: true },
-      { label: "Jun", value: 104 },
-    ],
-  },
-  Daily: {
-    unit: "k",
-    points: [
-      { label: "Mon", value: 4.2 },
-      { label: "Tue", value: 5.8 },
-      { label: "Wed", value: 5.1 },
-      { label: "Thu", value: 6.4 },
-      { label: "Fri", value: 7.1, current: true },
-      { label: "Sat", value: 2.3 },
-    ],
-  },
-};
-
-type Range = keyof typeof datasets;
+import { getRevenueSeries } from "@/lib/supabase/dashboard-queries";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 /**
- * Revenue by period — one series, so every bar wears the same colour and only
- * the current period is picked out. Hover shows a read-out; it never resizes
- * the bar, because changing a bar's height misstates the value it encodes.
+ * Revenue actually collected, by month.
  *
- * The range toggle actually switches data. In the source it was two styled
- * buttons wired to nothing.
+ * This component used to hold its own data: two hardcoded arrays, `Monthly`
+ * running Jan 84k → Jun 104k and `Daily` running Mon 4.2k → Sat 2.3k, with a
+ * range toggle that switched between two fictions. It rendered on `/admin` —
+ * the first screen an administrator sees — above a Delivery Health panel and
+ * summary cards that were all correctly wired to real queries. Roughly $628k of
+ * invented revenue sat on a system whose `invoice_payments` table has never
+ * held a single row, and it was the most credible-looking thing on the page
+ * precisely because everything around it was honest.
+ *
+ * Now a server component reading `getRevenueSeries()`. The range toggle is gone
+ * rather than reimplemented: a daily breakdown of payments is not a figure this
+ * business needs on its landing page, and keeping a control alive purely
+ * because it existed before is how the fake dataset justified itself in the
+ * first place.
+ *
+ * With no payments recorded the chart yields to an empty state. Six flat zero
+ * bars would read as a catastrophic quarter rather than as an unused feature.
  */
-export function RevenueChart() {
-  const [range, setRange] = React.useState<Range>("Monthly");
-  const data = datasets[range];
-  const max = Math.max(...data.points.map((p) => p.value));
+export async function RevenueChart() {
+  const { points, hasData, basis } = await getRevenueSeries(6);
+
+  const money = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+    notation: "compact",
+  });
+
+  const full = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+
+  if (!hasData) {
+    return (
+      <figure>
+        <figcaption className="mb-6">
+          <h3 className="font-heading text-xl font-semibold text-ink">Revenue collected</h3>
+          <p className="text-xs text-ink-tertiary">{basis}</p>
+        </figcaption>
+        <EmptyState
+          icon={TrendingUp}
+          title="No payments recorded yet"
+          description="This chart plots cash received against invoices, month by month. It will fill in as payments are recorded on the Invoices screen."
+        />
+      </figure>
+    );
+  }
+
+  // Scaling against the largest bar keeps small months visible. A zero month
+  // still renders a hairline so the bar is present rather than missing.
+  const max = Math.max(...points.map((p) => p.value), 1);
+  const total = points.reduce((sum, p) => sum + p.value, 0);
 
   return (
     <figure>
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
         <figcaption>
-          <h3 className="font-heading text-xl font-semibold text-ink">Revenue Growth</h3>
-          <p className="text-xs text-ink-tertiary">
-            Aggregated data from all active contracts
-          </p>
+          <h3 className="font-heading text-xl font-semibold text-ink">Revenue collected</h3>
+          <p className="text-xs text-ink-tertiary">{basis}</p>
         </figcaption>
-
-        <div
-          role="radiogroup"
-          aria-label="Time range"
-          className="flex gap-2"
-        >
-          {(Object.keys(datasets) as Range[]).map((key) => {
-            const selected = range === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setRange(key)}
-                className={cn(
-                  "rounded px-3 py-1 text-[0.6875rem] transition-colors duration-(--duration-fast)",
-                  "focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:outline-none",
-                  selected
-                    ? "bg-brand font-bold text-brand-fg"
-                    : "border border-line bg-surface-sunken text-ink-tertiary hover:text-ink"
-                )}
-              >
-                {key}
-              </button>
-            );
-          })}
-        </div>
+        <p className="text-xs text-ink-tertiary">
+          <span data-tabular className="font-semibold text-ink">
+            {full.format(total)}
+          </span>{" "}
+          over 6 months
+        </p>
       </div>
 
       <div className="relative flex h-64 w-full items-end gap-[2px]">
-        {data.points.map((point) => (
+        {points.map((point) => (
           <div key={point.label} className="group/bar relative flex h-full flex-1 items-end">
             <div
               className={cn(
                 "w-full rounded-t-[4px] transition-opacity duration-(--duration-fast) group-hover/bar:opacity-80",
                 point.current ? "bg-brand" : "bg-chart-1"
               )}
-              style={{ height: `${(point.value / max) * 100}%` }}
+              style={{ height: `${Math.max((point.value / max) * 100, 0.5)}%` }}
             />
 
             {/* The current period is direct-labelled; the rest reveal on hover. */}
@@ -107,15 +99,14 @@ export function RevenueChart() {
                   : "border border-line bg-surface-raised text-ink opacity-0 shadow-e2 group-hover/bar:opacity-100"
               )}
             >
-              ${point.value}
-              {data.unit}
+              {money.format(point.value)}
             </span>
           </div>
         ))}
       </div>
 
       <div className="mt-4 flex gap-[2px] px-2">
-        {data.points.map((point) => (
+        {points.map((point) => (
           <span
             key={point.label}
             className={cn(

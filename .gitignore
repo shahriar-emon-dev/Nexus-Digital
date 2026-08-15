@@ -8,6 +8,13 @@
 # testing
 /coverage
 
+# Playwright. `test-results` holds traces, screenshots and videos from failed
+# runs; a single trace is megabytes and none of it is reproducible input.
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /.next-build/
@@ -19,11 +26,6 @@
 # misc
 .DS_Store
 *.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # local env files
 .env*.local

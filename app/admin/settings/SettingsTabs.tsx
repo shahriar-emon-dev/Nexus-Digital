@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Globe, Plug } from "lucide-react";
+import { Globe, Landmark, Plug } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SeoTagsPanel } from "./SeoTagsPanel";
+import { BillingPanel } from "./BillingPanel";
 import type { SiteSettings } from "@/lib/supabase/site-settings-actions";
 
 /**
@@ -34,6 +35,10 @@ export function SettingsTabs({
           <Globe aria-hidden />
           SEO &amp; marketing tags
         </TabsTrigger>
+        <TabsTrigger value="billing">
+          <Landmark aria-hidden />
+          Payment details
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="integrations" className="mt-8">
@@ -42,6 +47,10 @@ export function SettingsTabs({
 
       <TabsContent value="seo" className="mt-8">
         <SeoTagsPanel settings={settings} />
+      </TabsContent>
+
+      <TabsContent value="billing" className="mt-8">
+        <BillingPanel settings={settings} />
       </TabsContent>
     </Tabs>
   );

@@ -59,14 +59,20 @@ export const adminSections: NavSection[] = [
       {
         // The SEO designs shipped their own rail. Their items are added here
         // rather than displacing anything that was already in this sidebar.
-        href: "/admin/analytics/seo",
-        label: "SEO Intelligence",
+        href: "/admin/analytics/overview",
+        label: "Analytics",
         icon: LineChart,
         children: [
           {
-            href: "/admin/analytics/seo",
-            label: "Overview",
+            href: "/admin/analytics/overview",
+            label: "Business",
             icon: Gauge,
+            exact: true,
+          },
+          {
+            href: "/admin/analytics/seo",
+            label: "SEO",
+            icon: LineChart,
             exact: true,
           },
           {
@@ -94,6 +100,10 @@ export const adminSections: NavSection[] = [
       // No `badge:` literals here. Counts arrive from the database via
       // `applyBadges` below — a hardcoded 4 and 2 advertised six items of
       // outstanding work over an empty table.
+      // Spec §10.2 lists Meetings as an admin nav group; the route existed
+      // nowhere and the rail had no entry, so the agency calendar was visible
+      // only from the staff and client portals.
+      { href: "/admin/meetings", label: "Meetings", icon: CalendarRange, moduleId: "crm-database", minimum: "view" },
       { href: "/admin/invoices", label: "Financials & Invoicing", icon: Wallet, moduleId: "financial-systems", minimum: "view" },
       { href: "/admin/reviews", label: "Review Moderation", icon: MessageSquareQuote },
       {

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
 /**
- * `/admin/analytics` is a section, not a screen — SEO Overview and Keywords
- * are its two pages. A landing page here would either duplicate the overview
- * or be an index of two links, so it forwards instead.
+ * `/admin/analytics` is a section, not a screen. It forwards to the business
+ * overview — the eight-chart dashboard spec §12.1 asks for — rather than to
+ * the SEO page, which answers a narrower question.
  */
 export default function AdminAnalyticsPage() {
-  redirect("/admin/analytics/seo");
+  redirect("/admin/analytics/overview");
 }
